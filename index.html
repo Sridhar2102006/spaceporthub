@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Space Quiz Adventure - Spaceport hub</title>
+    <style>
+        /* --- Base & Global --- */
+        *, *::before, *::after {
+            box-sizing: border-box; /* Make width/height calculations include padding/border */
+        }
+        html { height: 100%; }
+        body {
+            margin: 0; padding: 0; height: 100%; overflow: hidden;
+            background: linear-gradient(0deg, #000 0%, #001f3f 100%);
+            background-size: cover;
+            animation: spaceTravel 60s linear infinite alternate;
+            font-family: 'Courier New', monospace;
+            color: #eee;
+            display: flex; /* Use flex for overall structure */
+            flex-direction: column; /* Stack menu bar above content */
+        }
+        @keyframes spaceTravel { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+
+        /* --- Fixed Menu Bar --- */
+        #menu-bar {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.85); padding: 10px 0;
+            display: flex; justify-content: center; gap: 20px;
+            z-index: 100; border-bottom: 1px solid #00ffff;
+            flex-shrink: 0; /* Prevent menu from shrinking */
+            order: 1; /* Place menu first */
+        }
+        .menu-item {
+            color: #00ffff; text-decoration: none; font-size: clamp(1rem, 2vw, 1.2rem);
+            padding: 5px 15px; border-radius: 5px; transition: all 0.3s ease;
+        }
+        .menu-item:hover, .menu-item.active { background-color: #00ffff; color: #000; }
+
+        /* --- Starfield Background (fixed) --- */
+        .starfield { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+        .star {
+            position: absolute; width: 2px; height: 2px; background-color: white;
+            border-radius: 50%; opacity: 0.7; animation: twinkle 1.5s infinite alternate;
+        }
+        @keyframes twinkle { from { opacity: 0.2; } to { opacity: 0.8; } }
+
+        /* --- Main Layout Container (Flex Row) --- */
+        #layout-container {
+            display: flex; /* Arrange sidebar and main content */
+            flex-grow: 1; /* Take remaining vertical space */
+            /* Calculate height based on actual menu bar height (approx 41px + padding -> ~61px) */
+            height: calc(100% - 61px); /* Adjust if menu height changes */
+            overflow: hidden; /* Prevent layout container itself from scrolling */
+            position: relative; /* For starfield positioning */
+            padding: 10px; /* Add padding around the main area */
+            order: 2; /* Place below menu */
+        }
+
+        /* --- Planet Sidebar (Fixed Width within Flex) --- */
+        #planet-sidebar {
+            width: clamp(110px, 13vw, 160px); /* Slightly wider for filter */
+            background: rgba(0,10,20,0.9);
+            border: 1px solid #00ffff; border-radius: 10px;
+            padding: 15px 5px;
+            display: flex; flex-direction: column;
+            align-items: center; overflow: hidden; /* Hide main overflow, options will scroll */
+            box-shadow: 0 0 15px #00ffff44;
+            flex-shrink: 0;
+            margin-right: 15px;
+            height: 100%;
+        }
+        .planet-sidebar-options {
+             display: flex; flex-direction: column; gap: 10px; width: 100%;
+             overflow-y: auto; /* Make options scrollable */
+             flex-grow: 1; /* Allow options to take available space */
+             min-height: 0; /* Important for flex + scroll */
+             padding-right: 5px; /* Space for scrollbar */
+        }
+        /* Custom Scrollbar for Sidebar Options */
+        .planet-sidebar-options::-webkit-scrollbar { width: 6px; }
+        .planet-sidebar-options::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 3px; }
+        .planet-sidebar-options::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 3px; }
+
+        .planet-sidebar-option {
+            display: flex; flex-direction: column; align-items: center; cursor: pointer;
+            padding: 10px 0; border-radius: 8px; transition: background 0.2s, border 0.2s;
+            border: 1px solid transparent; width: 100%; /* Ensure takes full width */
+        }
+        .planet-sidebar-option:hover { background: #00ffff22; }
+        .planet-sidebar-option.selected { background: #00ffff44; border: 1px solid #00ffff; }
+        .planet-img {
+            width: clamp(35px, 5vw, 45px); height: clamp(35px, 5vw, 45px);
+            border-radius: 50%; background-size: cover; background-position: center;
+            border: 1px solid #00ffff55; margin-bottom: 6px; position: relative; overflow: hidden;
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.2);
+        }
+        .planet-sidebar-option span { color: #00ffff; font-size: clamp(10px, 1.8vw, 12px); margin-top: 4px; text-align: center; word-break: break-word; }
+        .saturn-ring {
+             position: absolute; width: 110%; height: 8px; background-color: #d1b575aa;
+             top: 50%; left: -5%; transform: translateY(-50%) rotate(-20deg);
+             border-radius: 50%; border: 1px solid #e9d7a788; pointer-events: none;
+        }
+
+        /* --- Sidebar Filter Widget --- */
+        .filter-container {
+            width: 100%;
+            padding: 0 5px 10px 5px; /* Add some padding */
+            margin-bottom: 10px; /* Space below filter */
+            border-bottom: 1px solid #00ffff55; /* Separator line */
+            display: flex;
+            flex-direction: column; /* Stack label and select */
+            gap: 5px; /* Space between label and select */
+            flex-shrink: 0; /* Prevent filter from shrinking */
+        }
+        .filter-label {
+            color: #aaa;
+            font-size: clamp(10px, 1.5vw, 11px);
+            text-align: center;
+            text-transform: uppercase;
+        }
+        .filter-select {
+            width: 100%;
+            background-color: rgba(0, 10, 20, 0.9); /* Match panel background */
+            color: #00ffff; /* Cyan text */
+            border: 1px solid #00ffff; /* Cyan border */
+            border-radius: 5px;
+            padding: 5px 8px;
+            font-family: 'Courier New', monospace;
+            font-size: clamp(11px, 1.8vw, 13px);
+            appearance: none; /* Remove default OS styling */
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            /* Add a simple arrow indicator using background */
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%2300ffff" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 5px center;
+            background-size: 18px 18px;
+            cursor: pointer;
+        }
+        .filter-select:focus {
+            outline: none;
+            box-shadow: 0 0 8px #00ffff88;
+        }
+        /* Style options (limited cross-browser support) */
+        .filter-select option {
+             background-color: #001f3f; /* Dark background for dropdown list */
+             color: #eee;
+        }
+
+        /* --- Main Content Area (Flex Item) --- */
+        #main-content-area {
+            display: flex;
+            flex-direction: column; /* Stack title and content row */
+            align-items: center;
+            flex-grow: 1; /* Take remaining horizontal space */
+            overflow: hidden; /* Hide potential internal overflows unless specified */
+            padding: 10px 15px; /* Padding inside main area */
+            height: 100%; /* Take full height of parent */
+        }
+
+        #floatingText {
+            font-size: clamp(2.2rem, 6vw, 3.5rem); /* Slightly smaller max */
+            color: #00ffff;
+            animation: float 4s ease-in-out infinite;
+            z-index: 10;
+            white-space: nowrap;
+            text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffffaa;
+            margin-bottom: 15px;
+            text-align: center;
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+        @keyframes float { 0% { transform: translateY(0); opacity: 0.9; } 50% { transform: translateY(-8px); opacity: 1; } 100% { transform: translateY(0); opacity: 0.9; } }
+
+        /* --- Content Row (Spaceport, Log, Cockpit Status) --- */
+        .content-row {
+            display: flex;
+            justify-content: center; /* Center items within the row */
+            align-items: stretch; /* Make items same height */
+            gap: 15px; /* Reduced gap */
+            width: 100%;
+            flex-wrap: nowrap; /* Prevent wrapping by default on large screens */
+            flex-grow: 1; /* Allow row to take space */
+            overflow: hidden; /* Hide overflow */
+             min-height: 0; /* Needed for flex children with overflow */
+            padding: 0 5px; /* Add padding within the row */
+        }
+
+        /* --- Common Panel Styles --- */
+        .info-panel {
+            background-color: rgba(0, 10, 20, 0.9);
+            color: #00ffff;
+            padding: clamp(15px, 2vw, 20px); /* Adjusted padding */
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            z-index: 5;
+            box-shadow: 0 0 15px #00ffff66;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Hide overflow by default */
+            height: 100%; /* Fill height of content row */
+            min-height: 0; /* Essential for scrollable children */
+        }
+
+        /* Custom Scrollbar for Panel Content Areas */
+        #spaceport > div:not(.section-header):not(.rocket-management):not(.fuel-controls):not(.launch-control),
+        #spaceport .planet-info,
+        #log-entries,
+        #cockpit-status-content {
+             overflow-y: auto;
+             flex-grow: 1; /* Allow scrollable area to take space */
+             min-height: 0; /* Prevent pushing layout */
+             scrollbar-width: thin; /* Firefox */
+             scrollbar-color: #00ffffaa rgba(0, 20, 30, 0.3); /* Firefox */
+             padding-right: 5px; /* Space for scrollbar */
+        }
+        #spaceport > div:not(.section-header):not(.rocket-management):not(.fuel-controls):not(.launch-control)::-webkit-scrollbar,
+        #spaceport .planet-info::-webkit-scrollbar,
+        #log-entries::-webkit-scrollbar,
+        #cockpit-status-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        #spaceport > div:not(.section-header):not(.rocket-management):not(.fuel-controls):not(.launch-control)::-webkit-scrollbar-track,
+        #spaceport .planet-info::-webkit-scrollbar-track,
+        #log-entries::-webkit-scrollbar-track,
+        #cockpit-status-content::-webkit-scrollbar-track {
+            background: rgba(0, 20, 30, 0.3);
+            border-radius: 4px;
+        }
+         #spaceport > div:not(.section-header):not(.rocket-management):not(.fuel-controls):not(.launch-control)::-webkit-scrollbar-thumb,
+         #spaceport .planet-info::-webkit-scrollbar-thumb,
+         #log-entries::-webkit-scrollbar-thumb,
+         #cockpit-status-content::-webkit-scrollbar-thumb {
+            background-color: #00ffffaa;
+            border-radius: 4px;
+            border: 1px solid #005050;
+        }
+        #spaceport > div:not(.section-header):not(.rocket-management):not(.fuel-controls):not(.launch-control)::-webkit-scrollbar-thumb:hover,
+        #spaceport .planet-info::-webkit-scrollbar-thumb:hover,
+        #log-entries::-webkit-scrollbar-thumb:hover,
+        #cockpit-status-content::-webkit-scrollbar-thumb:hover {
+            background-color: #00ffff;
+        }
+
+        /* --- Spaceport Panel --- */
+        #spaceport {
+            flex: 1 1 45%; /* Give more space to spaceport */
+            max-width: 650px;
+            min-width: 300px;
+            align-items: center;
+            gap: clamp(8px, 1.5vh, 12px); /* Reduced gap */
+        }
+        .section-header { width: 100%; text-align: center; font-size: clamp(14px, 2vw, 16px); color: white; margin-bottom: 0px; padding-bottom: 5px; border-bottom: 1px solid #00ffff55; flex-shrink: 0;}
+        .rocket-management { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; flex-shrink: 0;}
+        .rocket-selection { display: flex; gap: clamp(8px, 1.5vw, 12px); justify-content: center; flex-wrap: wrap; }
+        .rocket-option { border: 1px solid #00ffff; padding: clamp(6px, 1vw, 8px) clamp(10px, 1.8vw, 12px); border-radius: 5px; cursor: pointer; transition: all 0.3s ease; min-width: 90px; background: #001a33; font-size: clamp(11px, 1.8vw, 13px); text-align: center; }
+        .rocket-option:hover { background: #00ffff44; }
+        .rocket-option.selected { background-color: #00ffff; color: #001a33; font-weight: bold; transform: scale(1.05); box-shadow: 0 0 10px #00ffff; }
+        /* #selected-rocket-info { font-size: clamp(11px, 1.8vw, 13px); background-color: #001a33aa; padding: 6px 10px; border-radius: 4px; border: 1px dashed #00ffff55; min-width: 230px; text-align: center; margin-top: 5px; flex-shrink: 0; } */ /* Removed display:none previously, commented out as it's unused now */
+        .planet-info { border: 1px dashed #00ffff88; padding: clamp(8px, 1.5vw, 12px); margin: 0 auto; border-radius: 5px; max-width: 95%; max-height: 120px; /* Reduced min height */ background: #001a33aa; text-align: left; font-size: clamp(12px, 1.8vw, 13px); width: 100%; display: none; /* Changed to none initially */ flex-shrink: 0; display: flex; flex-direction: column; } /* Added flex properties */
+        #planet-name { font-weight: bold; font-size: clamp(1.1em, 2.2vw, 1.2em); margin-bottom: 4px; color: #ffffff; flex-shrink: 0; }
+        #planet-distance { font-size: clamp(0.9em, 1.6vw, 1em); color: #aaa; margin-bottom: 6px; flex-shrink: 0;}
+        #planet-description { font-size: clamp(0.9em, 1.8vw, 1em); line-height: 1.3; overflow-y: auto; max-height: 60px; /* Allow description to scroll */ flex-grow: 1; /* Let description take space */}
+        .fuel-controls { display: flex; align-items: center; gap: clamp(6px, 1.2vw, 10px); justify-content: center; flex-wrap: wrap; font-size: clamp(11px, 1.8vw, 13px); width: 100%; margin-top: 5px; flex-shrink: 0;}
+        .fuel-bar-container { width: clamp(90px, 18vw, 130px); height: 16px; background-color: #333; border-radius: 5px; border: 1px solid #00ffff; overflow: hidden; }
+        #fuel-bar { height: 100%; background-color: limegreen; width: 100%; transition: width 0.5s ease, background-color 0.5s ease; }
+        #fuel-level { min-width: 55px; text-align: right;}
+        #purchase-fuel-btn { padding: clamp(5px, 0.8vw, 7px) clamp(8px, 1.5vw, 12px); font-size: clamp(11px, 1.6vw, 13px); background-color: #001a33; color: #00ffff; border: 1px solid #00ffff; border-radius: 5px; cursor: pointer; transition: all 0.3s ease; }
+        #purchase-fuel-btn:hover:not(:disabled) { background-color: #00ffff; color: #001a33; box-shadow: 0 0 8px #00ffff; }
+        #purchase-fuel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .launch-control { width: 100%; display: flex; justify-content: center; margin-top: 8px; flex-shrink: 0;}
+        #startMissionButton { padding: clamp(8px, 1.5vw, 12px) clamp(18px, 3.5vw, 25px); font-size: clamp(14px, 2.5vw, 16px); background-color: #001a33; color: #00ffff; border: 2px solid #00ffff; border-radius: 5px; cursor: pointer; transition: all 0.3s ease; min-width: 180px; font-weight: bold; }
+        #startMissionButton:hover:not(:disabled) { background-color: #00ffff; color: #001a33; transform: scale(1.05); box-shadow: 0 0 15px #00ffff; }
+        #startMissionButton:disabled { background-color: #333; color: #777; border-color: #555; cursor: not-allowed; transform: scale(1); opacity: 0.6; }
+        hr.panel-divider { width: 80%; border-color: #00ffff55; margin: 8px 0; border-style: dashed; flex-shrink: 0; }
+
+
+        /* --- Button Styles --- */
+        .btn {
+            display: inline-block; /* Allows padding/margin and prevents breaking lines */
+            padding: 8px 15px; /* Default padding */
+            font-family: 'Courier New', monospace;
+            font-size: clamp(12px, 1.8vw, 14px); /* Responsive font size */
+            color: #00ffff; /* Cyan text */
+            background-color: #001a33; /* Dark blue background */
+            border: 1px solid #00ffff; /* Cyan border */
+            border-radius: 5px; /* Rounded corners */
+            text-align: center;
+            text-decoration: none; /* Remove underline for links styled as buttons */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: normal; /* Reset font weight */
+            line-height: 1.2; /* Ensure consistent line height */
+            vertical-align: middle; /* Align buttons nicely if side-by-side */
+        }
+
+        .btn:hover:not(:disabled),
+        .btn:focus:not(:disabled) {
+            background-color: #00ffff; /* Invert background */
+            color: #001a33; /* Invert text color */
+            box-shadow: 0 0 8px #00ffffaa; /* Subtle glow */
+            outline: none; /* Remove default focus outline */
+            /* transform: translateY(-1px); Optional subtle lift */
+        }
+
+        .btn:active:not(:disabled) {
+             background-color: #00cccc; /* Slightly darker cyan for click */
+             border-color: #00cccc;
+             transform: translateY(1px); /* Optional subtle press */
+        }
+
+        /* Disabled state for both <button disabled> and <a class="btn disabled"> */
+        .btn:disabled,
+        .btn.disabled { /* Add .disabled class for <a> tags */
+            background-color: #333;
+            color: #777;
+            border-color: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+            box-shadow: none;
+            transform: none;
+        }
+
+        /* Ensure menu items styled as buttons have correct hover */
+        /* (Combined menu-item and btn might need specific hover) */
+        .menu-item.btn:hover {
+             background-color: #00ffff; /* Standard button hover */
+             color: #001a33;
+        }
+        .menu-item.btn.active { /* If an active menu item is also a button */
+             background-color: #00ffff;
+             color: #001a33;
+        }
+
+        /* Styling for the links container in rocket management */
+        .rocket-links {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Optional: Specific styling for the mission button if needed */
+        .rocket-management .mission-btn {
+            /* margin-top: 5px; /* Example if not in rocket-links div */
+            /* Add any unique styles for the mission button here */
+        }
+
+
+        /* --- Travel Log --- */
+        #travel-log {
+            flex: 1 1 27%; /* Adjusted flex basis */
+            max-width: 400px;
+            min-width: 240px; /* Reduced min-width */
+        }
+        #travel-log h3 { text-align: center; margin-top: 0; margin-bottom: 10px; color: white; font-size: clamp(1.1em, 2.2vw, 1.2em); flex-shrink: 0; border-bottom: 1px solid #00ffff55; padding-bottom: 8px;}
+        #log-entries { flex-grow: 1; /* Takes remaining space */ min-height: 0; padding-right: 8px; overflow-y: auto; /* Explicitly make scrollable */}
+        .log-entry { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dotted #00ffff88; line-height: 1.3; word-wrap: break-word; font-size: clamp(10px, 1.4vw, 11px); }
+
+
+        /* --- Cockpit Status Panel --- */
+        #cockpit-status-panel {
+            flex: 1 1 28%; /* Adjusted flex basis */
+            max-width: 400px;
+            min-width: 240px; /* Reduced min-width */
+        }
+        #cockpit-status-panel h3 {
+            text-align: center; margin-top: 0; margin-bottom: 10px; color: white;
+            font-size: clamp(1.1em, 2.2vw, 1.2em); flex-shrink: 0;
+            border-bottom: 1px solid #00ffff55; padding-bottom: 8px;
+        }
+        #cockpit-status-content {
+            flex-grow: 1; display: flex; flex-direction: column;
+            gap: 8px; justify-content: flex-start;
+            font-size: clamp(11px, 1.6vw, 13px);
+            overflow-y: auto; /* Make content scrollable if needed */
+            min-height: 0; /* Prevent pushing layout */
+        }
+        .status-row { /* Use this for consistent spacing */
+            display: flex;
+            justify-content: space-between; /* Align label and value */
+            align-items: baseline; /* Align text baselines */
+            width: 100%;
+            padding: 4px 0; /* Slightly more padding */
+            border-bottom: 1px dotted #00ffff33; /* Subtle separator */
+            flex-shrink: 0; /* Prevent rows from shrinking */
+        }
+        .status-row:last-of-type { border-bottom: none; } /* Remove border from last row */
+        .status-label { color: #aaa; padding-right: 10px; white-space: nowrap;}
+        .status-value { text-align: right; color: #fff; word-break: break-word; /* Allow long names to wrap */ }
+        #cockpit-status-link-value.ready { color: #55ff55; font-weight: bold; }
+        #cockpit-status-link-value.not-ready { color: #ff6666; }
+
+        /* Earth Display Styles */
+        #earth-display {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            margin-top: auto; /* Pushes to bottom */
+            padding: 15px 0 10px 0;
+            background: rgba(0, 30, 60, 0.3);
+            border-radius: 8px; border-top: 1px solid #00ffff55; flex-shrink: 0;
+        }
+        .earth-img {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: radial-gradient(circle, #4d94ff, #0033cc);
+            box-shadow: 0 0 10px #4d94ffaa; margin-bottom: 6px;
+        }
+        .earth-message { color: #aaa; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; }
+        .earth-name { color: white; font-weight: bold; font-size: 1em; margin-top: 2px; }
+
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 1000px) { /* Adjust breakpoint */
+             .content-row {
+                flex-wrap: wrap; /* Allow wrapping */
+                align-items: flex-start; /* Align tops when wrapped */
+                overflow-y: auto; /* Allow row to scroll if needed */
+                padding: 0;
+                justify-content: space-around; /* Distribute space when wrapped */
+             }
+             .info-panel { /* Apply to spaceport, log, cockpit */
+                 flex-basis: calc(50% - 10px); /* Two columns roughly */
+                 max-width: calc(50% - 10px);
+                 height: auto; /* Allow height adjustment */
+                 min-height: 250px; /* Minimum height when wrapped */
+                 max-height: 50vh; /* Max height to prevent excessive stretching */
+                 margin-bottom: 15px; /* Add space below wrapped items */
+             }
+             #spaceport { order: 1; } /* Keep spaceport first */
+             #cockpit-status-panel { order: 2; } /* Cockpit status next */
+             #travel-log { order: 3; flex-basis: 100%; max-width: 95%; } /* Log takes full width below */
+
+             #floatingText { font-size: clamp(2rem, 5vw, 3rem); }
+        }
+
+        @media (max-width: 700px) {
+             #layout-container { flex-direction: column; height: auto; /* Allow vertical growth */}
+             #planet-sidebar {
+                 width: 100%; /* Sidebar takes full width */
+                 height: auto; /* Adjust height */
+                 max-height: 180px; /* Limit height, adjust as needed */
+                 margin-right: 0; /* No margin when stacked */
+                 margin-bottom: 10px; /* Space below */
+                 padding: 8px;
+             }
+             .filter-container { padding-bottom: 5px; margin-bottom: 5px; } /* Reduce filter padding */
+             .planet-sidebar-options { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding-right: 0; padding-bottom: 5px; } /* Icons side-by-side, horizontal scroll */
+             .planet-sidebar-option { padding: 5px; flex-shrink: 0; /* Prevent shrinking in row */ }
+             .planet-img { width: 35px; height: 35px;}
+             .content-row { flex-direction: column; align-items: center; flex-wrap: nowrap; }
+             .info-panel {
+                 flex-basis: auto; /* Reset basis */
+                 width: 95%; /* Take most of the width */
+                 max-width: 95%;
+                 max-height: none; /* Remove max height limit */
+                 min-height: 150px; /* Reduce min height */
+             }
+              #travel-log { order: 3; } /* Ensure log is last */
+
+              #floatingText { font-size: clamp(1.8rem, 7vw, 2.8rem); margin-bottom: 10px; }
+         }
+
+         @media (max-width: 400px) {
+             .rocket-option { min-width: 80px; font-size: 10px; padding: 4px 8px;}
+             /* #selected-rocket-info { min-width: 180px; font-size: 10px;} */ /* Still commented out */
+             #purchase-fuel-btn { font-size: 10px; padding: 4px 8px;}
+             #startMissionButton { min-width: 150px; font-size: 12px; padding: 6px 15px;}
+             .status-row { padding: 2px 0;}
+             .status-label, .status-value { font-size: 10px; }
+             #earth-display { padding: 10px 0 5px 0; }
+             .earth-img { width: 40px; height: 40px; }
+             .earth-message { font-size: 0.7em;}
+             .earth-name { font-size: 0.9em;}
+             .btn { /* Adjust general button padding/font for small screens */
+                padding: 6px 10px;
+                font-size: 11px;
+             }
+             .menu-item { /* Adjust menu items too */
+                padding: 4px 10px;
+                font-size: clamp(0.9rem, 2vw, 1.1rem); /* Slightly smaller on mobile */
+             }
+             .rocket-links .menu-item, /* Ensure menu items used as buttons in rocket links adapt */
+             .rocket-links .btn {
+                 padding: 6px 10px; /* Match .btn padding */
+                 font-size: 11px;   /* Match .btn font size */
+             }
+
+         }
+
+    </style>
+</head>
+<body>
+
+    <!-- Menu Bar -->
+    <div id="menu-bar">
+        <a href="#" class="menu-item active">Home</a> <!-- Use # for placeholder links -->
+        <a href="#" class="menu-item">About</a>
+        <a href="#" class="menu-item">Contact Us</a>
+    </div>
+
+    <!-- Main Layout Container -->
+    <div id="layout-container">
+        <!-- Starfield is fixed underneath -->
+        <div class="starfield" id="starfield"></div>
+
+        <!-- Planet Sidebar -->
+        <div id="planet-sidebar">
+            <!-- Filter Widget -->
+            <div class="filter-container">
+                 <label for="planet-filter-select" class="filter-label">Filter View:</label>
+                 <select id="planet-filter-select" class="filter-select">
+                     <option value="all">All Destinations</option>
+                     <option value="planet">Planets & Dwarf</option>
+                     <option value="moon">Moons</option>
+                     <option value="orbit">Orbital Scans</option>
+                 </select>
+            </div>
+            <!-- End Filter Widget -->
+
+            <div class="planet-sidebar-options">
+                 <!-- Planet options added by JS -->
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div id="main-content-area">
+            <!-- Title -->
+            <div id="floatingText">Spaceport Hub</div>
+
+            <!-- Content Row (Spaceport, Log, Cockpit Status) -->
+            <div class="content-row">
+
+                <!-- Spaceport Panel -->
+                <div id="spaceport" class="info-panel">
+                     <!-- Header Section -->
+                     <div class="section-header"> Pilot Credits: <span id="player-credits">100</span> 💰 </div>
+                     <!-- Rocket Section -->
+                     <div class="rocket-management">
+                         <h4 class="section-header" style="margin-bottom: 8px; color: #00ffff; font-size: clamp(1em, 2.2vw, 1.1em);">Select Your Ship</h4>
+                         <div class="rocket-selection">
+                             <div class="rocket-option" onclick="selectRocket('basic')" id="rocket-basic">🚀 Basic Orbiter</div>
+                             <!-- Add other rocket options like: -->
+                             <!-- <div class="rocket-option" onclick="selectRocket('interceptor')" id="rocket-interceptor">⚡ Interceptor</div> -->
+                             <!-- <div class="rocket-option" onclick="selectRocket('explorer')" id="rocket-explorer">🌌 Explorer</div> -->
+                         </div>
+                         <!-- Links Container -->
+                         <div class="rocket-links">
+                             <a href="hanger.html" class="menu-item btn">Rocket Hangar</a> <!-- Added btn class -->
+                             <a href="shuttle hanger.html" class="menu-item btn">Shuttle Hangar</a> <!-- Added btn class -->
+
+                         </div>
+                     </div>
+                     <a href="summary1.html" class="btn mission-btn">Task</a>
+                     <a href="idkgame2.html" class="btn mission-btn">spaceport hub database</a>
+
+                     <hr class="panel-divider">
+                     <!-- Planet Info Display Area -->
+                     <div class="planet-info" id="planet-info">
+                         <div id="planet-name">Select a Destination</div>
+                         <div id="planet-distance">Distance: --</div>
+                         <div id="planet-description">
+                             Select a destination from the sidebar to see details. Use the filter above the list to narrow your choices.
+                         </div>
+                     </div>
+                     <hr class="panel-divider">
+                     <!-- Fuel Section -->
+                     <div class="fuel-controls">
+                         <span>Fuel:</span>
+                         <div class="fuel-bar-container"><div id="fuel-bar"></div></div>
+                         <span id="fuel-level">100.0/100</span>
+                         <button id="purchase-fuel-btn" onclick="purchaseFuel()">⛽ Refuel (+25% for 10 Cr)</button>
+                     </div>
+                      <hr class="panel-divider">
+                     <!-- Launch Section -->
+                     <div class="launch-control">
+                          <button id="startMissionButton" disabled>Select Ship & Destination</button>
+                     </div>
+                </div>
+            
+
+                <!-- Travel Log -->
+                <div id="travel-log" class="info-panel">
+                    <h3>📜 Travel Log</h3>
+                    <div id="log-entries"> <!-- Scrollable content goes here -->
+                         <!-- Entries added by JS -->
+                    </div>
+                </div>
+
+                <!-- Cockpit Status Panel -->
+                <div id="cockpit-status-panel" class="info-panel">
+                    <h3>🛰️ Cockpit Status</h3>
+                    <div id="cockpit-status-content">
+                        <div class="status-row">
+                             <span class="status-label">Selected Ship:</span>
+                             <span class="status-value" id="cockpit-status-ship">None</span>
+                        </div>
+                        <div class="status-row">
+                             <span class="status-label">Destination:</span>
+                             <span class="status-value" id="cockpit-status-destination">None</span>
+                        </div>
+                        <div class="status-row">
+                             <span class="status-label">Fuel:</span>
+                             <span class="status-value" id="cockpit-status-fuel">--</span>
+                        </div>
+                        <div class="status-row">
+                             <span class="status-label">Fuel Capacity:</span>
+                             <span class="status-value" id="cockpit-status-capacity">--</span>
+                         </div>
+                        <div class="status-row">
+                            <span class="status-label">Cockpit Link:</span>
+                            <span class="status-value not-ready" id="cockpit-status-link-value">Not Ready</span>
+                        </div>
+
+                        <!-- Earth Display -->
+                         <div id="earth-display">
+                             <div class="earth-img"></div>
+                             <div class="earth-message">Takeoff Origin</div>
+                             <div class="earth-name">EARTH STATION</div>
+                         </div>
+                    </div>
+                </div>
+
+            </div> <!-- End content-row -->
+
+        </div> <!-- End main-content-area -->
+
+    </div> <!-- End layout-container -->
+
+    <!-- Background Music -->
+    <audio id="bg-music" src="transformers-uprising-286094.mp3" autoplay loop muted></audio> <!-- Replace with your actual audio file -->
+
+    <script>
+        // --- DOM Elements ---
+        const starfield = document.getElementById('starfield');
+        const floatingText = document.getElementById('floatingText');
+        const planetSidebarOptionsContainer = document.querySelector('#planet-sidebar .planet-sidebar-options');
+        const planetFilterSelect = document.getElementById('planet-filter-select'); // Filter Dropdown
+        const spaceportDiv = document.getElementById('spaceport');
+        const currencyDisplay = document.getElementById('player-credits');
+        const rocketOptions = document.querySelectorAll('.rocket-option');
+        // const selectedRocketInfoDisplay = document.getElementById('selected-rocket-info'); // No longer used visually
+        const fuelBar = document.getElementById('fuel-bar');
+        const fuelLevelDisplay = document.getElementById('fuel-level');
+        const purchaseFuelButton = document.getElementById('purchase-fuel-btn');
+        const startMissionButton = document.getElementById('startMissionButton');
+        const travelLog = document.getElementById('travel-log');
+        const logEntries = document.getElementById('log-entries');
+        const planetInfo = document.getElementById('planet-info');
+        const planetName = document.getElementById('planet-name');
+        const planetDistance = document.getElementById('planet-distance');
+        const planetDescription = document.getElementById('planet-description');
+        const mainContentArea = document.getElementById('main-content-area');
+        const layoutContainer = document.getElementById('layout-container');
+        // Cockpit Status Panel Elements
+        const cockpitStatusShip = document.getElementById('cockpit-status-ship');
+        const cockpitStatusDestination = document.getElementById('cockpit-status-destination');
+        const cockpitStatusFuel = document.getElementById('cockpit-status-fuel');
+        const cockpitStatusCapacity = document.getElementById('cockpit-status-capacity'); // Added for capacity
+        const cockpitStatusLinkValue = document.getElementById('cockpit-status-link-value');
+
+        // --- Game State & Data ---
+        let playerCredits = 200; // Initial/default value
+        let currentFuel = 100.0;
+        let selectedRocket = 'basic'; // Default to basic
+        let selectedPlanet = null;
+        let fuelCapacity = 100; // Default
+
+        const planets = {
+             'moon': { name: "Moon", description: "Earth's familiar natural satellite. Low gravity provides easy access.", distance: 5, bgColor: '#e0e0e0', type: 'moon' },
+             'venus': { name: "Venus", description: "A hellish world with crushing pressure and acidic clouds. Handle with care.", distance: 25, bgColor: '#e5c27e', type: 'planet' },
+             'mars': { name: "Mars", description: "The rusty Red Planet. Search for signs of past life or valuable minerals.", distance: 50, bgColor: '#c1440e', type: 'planet' },
+             'mercury': { name: "Mercury", description: "Scorched by the Sun, yet holds ice in shadowed craters. Extreme conditions.", distance: 35, bgColor: '#b0b0b0', type: 'planet' },
+             'ceres': { name: "Ceres", description: "Dwarf planet ruling the asteroid belt. Mysterious bright spots beckon.", distance: 60, bgColor: '#bdbdbd', type: 'planet' }, // Classified as planet for simplicity here
+             'io': { name: "Io (Jupiter Moon)", description: "Jupiter's volcanic moon. Constantly reshaped by lava flows. Highly hazardous.", distance: 120, bgColor: '#ffe066', type: 'moon' },
+             'europa': { name: "Europa (Jupiter Moon)", description: "Ice-covered Jovian moon hiding a potential global ocean. Intriguing!", distance: 125, bgColor: '#b3e0ff', type: 'moon' },
+             'ganymede': { name: "Ganymede (Jupiter Moon)", description: "Largest moon in the solar system (orbits Jupiter). Possesses its own magnetic field.", distance: 130, bgColor: '#d9cba2', type: 'moon' },
+             'callisto': { name: "Callisto (Jupiter Moon)", description: "Jupiter's ancient, heavily cratered moon. A quiet, icy world.", distance: 135, bgColor: '#a89c94', type: 'moon' },
+             'titan': { name: "Titan (Saturn Moon)", description: "Saturn's largest moon. Features a thick, hazy atmosphere and lakes of liquid methane.", distance: 150, bgColor: '#e2b878', type: 'moon' },
+             'jupiter': { name: "Jupiter (Orbit)", description: "Cannot land. Perform orbital scans of the gas giant king. Beware the radiation!", distance: 200, bgColor: '#e8b863', type: 'orbit' },
+             'saturn': { name: "Saturn (Orbit)", description: "Cannot land. Study the magnificent rings of the gas giant. Breathtaking views.", distance: 250, bgColor: '#e9d7a7', type: 'orbit' },
+             'uranus': { name: "Uranus (Orbit)", description: "Cannot land. Observe the pale blue ice giant rotating strangely on its side.", distance: 300, bgColor: '#b0e0e6', type: 'orbit' },
+             'neptune': { name: "Neptune (Orbit)", description: "Cannot land. Deep blue ice giant with ferocious winds. Data collection mission.", distance: 350, bgColor: '#5b5ddf', type: 'orbit' },
+             'pluto': { name: "Pluto (Dwarf Planet)", description: "Dwarf planet in the Kuiper Belt. Explore its surprising geology and tenuous atmosphere.", distance: 400, bgColor: '#cccccc', type: 'planet' } // Classified as planet for simplicity
+        };
+        // Define potential future rockets here (add their costs)
+        const rocketCosts = { 'basic': 0, 'interceptor': 50, 'explorer': 100 }; // Example costs
+        // Define fuel capacities for all rockets
+        const rocketFuelCapacity = { 'basic': 100, 'interceptor': 150, 'explorer': 200 }; // Example capacities
+
+
+        // --- Initialization ---
+        window.onload = initGame;
+
+        function initGame() {
+            generateStars(150);
+
+            // Load state from localStorage BEFORE initial UI setup
+            playerCredits = parseInt(localStorage.getItem('playerCredits')) || 200;
+            selectedRocket = localStorage.getItem('selectedRocket') || 'basic';
+            if (!rocketFuelCapacity[selectedRocket]) selectedRocket = 'basic'; // Validate stored rocket
+            fuelCapacity = rocketFuelCapacity[selectedRocket];
+            currentFuel = parseFloat(localStorage.getItem('currentFuel')) || fuelCapacity; // Default to full capacity
+            currentFuel = Math.min(currentFuel, fuelCapacity); // Cap fuel at capacity
+            selectedPlanet = localStorage.getItem('selectedPlanet') || null;
+             if (selectedPlanet && !planets[selectedPlanet]) { // Validate stored planet
+                selectedPlanet = null;
+                localStorage.removeItem('selectedPlanet');
+            }
+
+            // Create initial sidebar options based on filter (default 'all')
+            createPlanetSidebarOptions();
+
+            // Visually select the loaded rocket
+            selectRocket(selectedRocket, true); // Use initialization flag
+
+            addLogEntry("Spaceport Systems Online. Welcome back, Captain!");
+            if (!localStorage.getItem('playedBefore_v2')) {
+                addLogEntry("Use the filter, select a destination, choose ship, manage fuel, then launch!", "system");
+                localStorage.setItem('playedBefore_v2', 'true');
+            }
+
+            // Add launch button listener
+            startMissionButton.addEventListener('click', initiateLaunch);
+
+            // Add Filter Event Listener
+            planetFilterSelect.addEventListener('change', () => {
+                createPlanetSidebarOptions(); // Rebuild sidebar on filter change
+            });
+
+            updateUI(); // Update all UI elements based on loaded/default state
+            // Ensure planet info box is shown if a planet was loaded and is still visible
+             if (selectedPlanet && document.querySelector(`.planet-sidebar-option.selected`)) {
+                 planetInfo.style.display = 'flex';
+             } else {
+                 planetInfo.style.display = 'none';
+             }
+        }
+
+        // --- Music Enabling ---
+        function enableMusicPlayback() {
+            const bgMusic = document.getElementById('bg-music');
+            if (bgMusic && bgMusic.muted) { // Only play if currently muted by browser policy
+                bgMusic.muted = false;
+                bgMusic.play().catch((e) => {
+                    console.log("Autoplay prevented:", e);
+                    // Maybe show a 'click to enable sound' button if needed
+                });
+            }
+            // Remove listeners after first interaction
+            window.removeEventListener('pointerdown', enableMusicPlayback);
+            window.removeEventListener('click', enableMusicPlayback);
+            window.removeEventListener('touchstart', enableMusicPlayback);
+        }
+        // Add listeners for first interaction
+        window.addEventListener('pointerdown', enableMusicPlayback);
+        window.addEventListener('click', enableMusicPlayback);
+        window.addEventListener('touchstart', enableMusicPlayback);
+
+
+         // --- UI Population and Visuals ---
+         function createPlanetSidebarOptions() {
+             planetSidebarOptionsContainer.innerHTML = ''; // Clear existing options
+             const selectedFilter = planetFilterSelect.value; // Get the current filter value
+             let currentSelectionStillVisible = false; // Track if the selected planet remains visible
+
+             for (const planetId in planets) {
+                 const pData = planets[planetId];
+
+                 // Filtering logic: Show if filter is 'all' OR if the planet type matches the filter
+                 if (selectedFilter === 'all' || pData.type === selectedFilter) {
+                     const optionDiv = document.createElement('div');
+                     optionDiv.classList.add('planet-sidebar-option');
+                     optionDiv.onclick = () => selectPlanet(planetId, optionDiv);
+
+                     // Add 'selected' class if this is the currently selected planet
+                     if (planetId === selectedPlanet) {
+                         optionDiv.classList.add('selected');
+                         currentSelectionStillVisible = true; // Mark as visible
+                     }
+
+                     const imgDiv = document.createElement('div');
+                     imgDiv.classList.add('planet-img');
+                     imgDiv.style.background = pData.bgColor;
+                     if (planetId === 'saturn') {
+                         const ringDiv = document.createElement('div');
+                         ringDiv.classList.add('saturn-ring');
+                         imgDiv.appendChild(ringDiv);
+                     }
+                     optionDiv.appendChild(imgDiv);
+
+                     const nameSpan = document.createElement('span');
+                     nameSpan.textContent = pData.name;
+                     optionDiv.appendChild(nameSpan);
+
+                     planetSidebarOptionsContainer.appendChild(optionDiv);
+                 }
+             }
+
+             // If the previously selected planet is no longer visible after filtering, deselect it
+             if (selectedPlanet && !currentSelectionStillVisible) {
+                  if (planets[selectedPlanet]) { // Check if planet data exists before accessing name
+                      addLogEntry(`Current destination (${planets[selectedPlanet].name}) hidden by filter. Selection cleared.`, 'warning');
+                  } else {
+                      addLogEntry(`Previously selected destination hidden by filter. Selection cleared.`, 'warning');
+                  }
+                  selectPlanet(null); // Deselect the planet (this function handles UI updates)
+             } else if (selectedPlanet && currentSelectionStillVisible) {
+                 // If selected planet IS visible, ensure info panel is shown
+                 planetInfo.style.display = 'flex';
+                 updateUI(); // Refresh UI in case only filter changed
+             } else {
+                 // If no planet is selected OR it was just deselected, hide info panel
+                 planetInfo.style.display = 'none';
+                 updateUI(); // Refresh UI
+             }
+         }
+
+        function generateStars(count) {
+            starfield.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                star.style.left = Math.random() * 100 + 'vw';
+                star.style.top = Math.random() * 100 + 'vh';
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.animationDuration = (Math.random() * 1.5 + 0.5) + 's';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starfield.appendChild(star);
+            }
+        }
+
+        function updateUI() {
+             currencyDisplay.textContent = playerCredits;
+             const capacity = fuelCapacity > 0 ? fuelCapacity : 100; // Avoid division by zero
+             const fuelPercentage = Math.max(0, Math.min(100, (currentFuel / capacity) * 100));
+             fuelBar.style.width = fuelPercentage + '%';
+             fuelLevelDisplay.textContent = `${currentFuel.toFixed(1)} / ${capacity}`;
+
+             // Fuel bar color logic
+             if (currentFuel <= 0) { fuelBar.style.backgroundColor = '#555'; }
+             else if (fuelPercentage <= 20) { fuelBar.style.backgroundColor = '#cc3300'; }
+             else if (fuelPercentage <= 50) { fuelBar.style.backgroundColor = '#ffcc00'; }
+             else { fuelBar.style.backgroundColor = '#00cc66'; }
+
+             purchaseFuelButton.disabled = (currentFuel >= capacity || playerCredits < 10);
+             const canLaunch = validateLaunch(false); // Validate without logging errors
+             startMissionButton.disabled = !canLaunch;
+
+             updateLaunchButtonText(); // Update button text based on validation
+             updateCockpitStatusPanel(); // Update cockpit panel display
+             // No longer need updateSelectedRocketDisplay as info is in cockpit panel
+        }
+
+        function updateLaunchButtonText() {
+            let reason = [];
+            if (!selectedRocket) reason.push("Select Ship");
+            if (!selectedPlanet) reason.push("Select Destination");
+            if (currentFuel <= 0) reason.push("Out of Fuel");
+
+            if (reason.length === 0) {
+                startMissionButton.textContent = "Launch Mission"; // Ready state text
+            } else {
+                startMissionButton.textContent = reason.join(' / ');
+            }
+        }
+
+        function updateCockpitStatusPanel() {
+            // Ship
+            let shipDisplay = "None";
+            if (selectedRocket) {
+                shipDisplay = selectedRocket.charAt(0).toUpperCase() + selectedRocket.slice(1);
+                if (shipDisplay === "Basic") shipDisplay = "Basic Orbiter";
+                 else if (shipDisplay === "Interceptor") shipDisplay = "⚡ Interceptor"; // Match potential display
+                 else if (shipDisplay === "Explorer") shipDisplay = "🌌 Explorer"; // Match potential display
+            }
+            cockpitStatusShip.textContent = shipDisplay;
+
+            // Destination
+            cockpitStatusDestination.textContent = (selectedPlanet && planets[selectedPlanet]) ? planets[selectedPlanet].name : "None";
+
+            // Fuel
+            cockpitStatusFuel.textContent = `${currentFuel.toFixed(1)}`; // Just current fuel
+            cockpitStatusCapacity.textContent = `${fuelCapacity}`; // Separate capacity
+
+            // Cockpit Link Status - checks all launch conditions
+            const canLaunch = validateLaunch(false); // Check readiness silently
+            if (canLaunch) {
+                cockpitStatusLinkValue.textContent = "Ready";
+                cockpitStatusLinkValue.classList.remove("not-ready");
+                cockpitStatusLinkValue.classList.add("ready");
+            } else {
+                cockpitStatusLinkValue.textContent = "Not Ready";
+                cockpitStatusLinkValue.classList.remove("ready");
+                cockpitStatusLinkValue.classList.add("not-ready");
+            }
+        }
+
+        // --- Core Logic ---
+
+        function selectRocket(rocketType, initialization = false) {
+             // Ensure the rocket type exists in our data
+             if (!rocketCosts.hasOwnProperty(rocketType) || !rocketFuelCapacity.hasOwnProperty(rocketType)) {
+                 console.error(`Invalid rocket type selected: ${rocketType}`);
+                 addLogEntry(`Error: Unknown ship type '${rocketType}'.`, "error");
+                 return;
+             }
+
+             const cost = rocketCosts[rocketType];
+             const selectedElement = document.getElementById(`rocket-${rocketType}`);
+
+             // Skip if already selected (unless initializing without the class)
+             if (!initialization && selectedRocket === rocketType && selectedElement?.classList.contains('selected')) {
+                 let rocketDisplayName = rocketType.charAt(0).toUpperCase() + rocketType.slice(1);
+                 if (rocketDisplayName === "Basic") rocketDisplayName = "Basic Orbiter";
+                 addLogEntry(`Ship ${rocketDisplayName} already selected.`, "info");
+                 return;
+             }
+
+             // Check cost only if not initializing AND cost > 0
+             if (!initialization && cost > 0 && playerCredits < cost) {
+                 addLogEntry(`Insufficient credits for ${rocketType} rocket (${cost} required).`, "error");
+                 alert(`Not enough credits! Need ${cost} credits for the ${rocketType} rocket.`);
+                 return;
+             }
+
+             // Purchase Logic (only if not initializing and cost > 0)
+             if (!initialization && cost > 0) {
+                 if (!confirm(`Purchase ${rocketType.toUpperCase()} rocket for ${cost} credits? Your fuel tank will be fully refilled.`)) { return; }
+                 playerCredits -= cost;
+                 addLogEntry(`Purchased ${rocketType} rocket for ${cost} credits.`, "success");
+                 localStorage.setItem('playerCredits', playerCredits.toString());
+                 // Refill fuel only on successful purchase of paid rocket
+                 currentFuel = rocketFuelCapacity[rocketType];
+                 addLogEntry(`Fuel tank refilled to ${currentFuel.toFixed(1)} capacity.`, "info");
+
+             } else if (!initialization) { // Handles switching to basic OR selecting basic initially OR selecting another free rocket
+                 const oldCapacity = fuelCapacity;
+                 const newCapacity = rocketFuelCapacity[rocketType];
+                 let rocketDisplayName = rocketType.charAt(0).toUpperCase() + rocketType.slice(1);
+                 if (rocketDisplayName === "Basic") rocketDisplayName = "Basic Orbiter";
+                 addLogEntry(`Selected ${rocketDisplayName}.`);
+
+                 // Adjust fuel ONLY if current fuel exceeds the new capacity
+                 if (currentFuel > newCapacity) {
+                     currentFuel = newCapacity;
+                     addLogEntry(`Fuel level adjusted to ${rocketDisplayName} capacity (${currentFuel.toFixed(1)}).`, "info");
+                 }
+             }
+
+             // Update State and UI
+             document.querySelectorAll('.rocket-option').forEach(option => option.classList.remove('selected'));
+             if (selectedElement) selectedElement.classList.add('selected');
+
+             selectedRocket = rocketType;
+             fuelCapacity = rocketFuelCapacity[selectedRocket]; // Set correct capacity
+             currentFuel = Math.min(currentFuel, fuelCapacity); // Ensure currentFuel doesn't exceed new capacity
+
+             // Save state if not initializing
+             if (!initialization) {
+                 localStorage.setItem('selectedRocket', selectedRocket);
+                 localStorage.setItem('currentFuel', currentFuel.toString()); // Save potentially updated fuel
+             }
+
+             updateUI(); // Full UI refresh
+         }
+
+
+         function selectPlanet(planetId, clickedElement) {
+             // Deselect previous visual indicator
+             document.querySelectorAll('.planet-sidebar-option.selected').forEach(el => el.classList.remove('selected'));
+
+             if (planetId === null || selectedPlanet === planetId) {
+                 // --- DESELECT ---
+                 if (selectedPlanet !== null && planets[selectedPlanet]) { // Only log if something valid *was* selected
+                     addLogEntry(`Destination ${planets[selectedPlanet].name} deselected.`);
+                 } else if (selectedPlanet !== null) {
+                      addLogEntry(`Destination deselected.`); // Fallback log
+                 }
+                 selectedPlanet = null;
+                 planetInfo.style.display = 'none'; // Hide info box
+                 localStorage.removeItem('selectedPlanet'); // Clear from storage
+             } else {
+                 // --- SELECT ---
+                 if (clickedElement) {
+                     clickedElement.classList.add('selected'); // Add visual indicator
+                 }
+                 selectedPlanet = planetId; // Update state
+                 localStorage.setItem('selectedPlanet', selectedPlanet); // Save selection
+                 planetInfo.style.display = 'flex'; // Show info box (use flex as per CSS)
+
+                 // Populate info box
+                 if (planets[planetId]) {
+                     const pData = planets[planetId];
+                     planetName.textContent = pData.name;
+                     planetDistance.textContent = `Distance: ${pData.distance} units`;
+                     planetDescription.textContent = pData.description;
+                     // Scroll description back to top
+                     planetDescription.scrollTop = 0;
+                     addLogEntry(`Selected destination: ${pData.name}.`);
+                 } else { // Should not happen if data is correct
+                     planetName.textContent = "Unknown Selection";
+                     planetDistance.textContent = "Distance: ???";
+                     planetDescription.textContent = "Error: Planet data missing.";
+                     addLogEntry(`Error selecting planet ID: ${planetId}. Data missing.`, "error");
+                     selectedPlanet = null; // Clear invalid selection
+                     localStorage.removeItem('selectedPlanet');
+                     planetInfo.style.display = 'none';
+                     if (clickedElement) clickedElement.classList.remove('selected'); // Remove visual indicator on error
+                 }
+             }
+             updateUI(); // Update buttons/links/cockpit panel based on selection
+         }
+
+        function purchaseFuel() {
+            const fuelCost = 10;
+            const fuelToAddPercentage = 25;
+            if (currentFuel >= fuelCapacity) { addLogEntry("Fuel tank already full.", "info"); alert("Fuel tank is already full!"); return; }
+            if (playerCredits < fuelCost) { addLogEntry("Insufficient credits for refueling.", "error"); alert("Not enough credits to purchase fuel!"); return; }
+
+            playerCredits -= fuelCost;
+            const fuelToAdd = fuelCapacity * (fuelToAddPercentage / 100);
+            const oldFuel = currentFuel;
+            currentFuel = Math.min(currentFuel + fuelToAdd, fuelCapacity); // Add fuel, capped at capacity
+            const addedAmount = currentFuel - oldFuel;
+
+            addLogEntry(`Purchased ${addedAmount.toFixed(1)} units fuel for ${fuelCost} credits.`, "success");
+            localStorage.setItem('playerCredits', playerCredits.toString());
+            localStorage.setItem('currentFuel', currentFuel.toString()); // Save updated fuel
+            updateUI(); // Refresh UI
+        }
+
+        function validateLaunch(logErrors = true) {
+            let isValid = true;
+            let errorMessages = [];
+
+            if (!selectedRocket) {
+                isValid = false;
+                if (logErrors) errorMessages.push("No ship selected.");
+            }
+            if (!selectedPlanet) {
+                isValid = false;
+                if (logErrors) errorMessages.push("No destination selected.");
+            }
+            if (currentFuel <= 0) {
+                isValid = false;
+                if (logErrors) errorMessages.push("Fuel tank empty!");
+            }
+
+            if (!isValid && logErrors && errorMessages.length > 0) {
+                 addLogEntry(`Cannot launch: ${errorMessages.join(" ")}`, "error");
+            }
+            return isValid;
+        }
+
+         function initiateLaunch() {
+             if (!validateLaunch(true)) return; // Validate and log errors if fail
+
+             // Save final state before leaving page
+             localStorage.setItem('selectedPlanet', selectedPlanet);
+             localStorage.setItem('currentFuel', currentFuel.toString());
+             localStorage.setItem('playerCredits', playerCredits.toString());
+             localStorage.setItem('selectedRocket', selectedRocket);
+
+             addLogEntry(`Launch sequence initiated for ${planets[selectedPlanet].name}. Transferring to Cockpit...`, "success");
+
+             // Visual feedback (fade out)
+             layoutContainer.style.transition = 'opacity 0.5s ease-out';
+             layoutContainer.style.opacity = '0';
+
+             // Redirect after fade out
+             setTimeout(() => {
+                 // !! IMPORTANT: Replace 'cockpit.html' with the ACTUAL filename
+                 // of your cockpit page if it's different !!
+                 window.location.href = 'cockpit.html';
+             }, 500); // Match transition duration
+         }
+
+
+        function addLogEntry(text, type = "info") {
+              if (!logEntries) { console.error("Log entries container not found!"); return; }
+              const entry = document.createElement('div');
+              entry.classList.add('log-entry');
+              const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              entry.innerHTML = `<span style="color: #888;">[${timestamp}]</span> ${text}`;
+
+              const typeColors = { error: "#ff6666", warning: "#ffcc66", success: "#66ff66", system: "#aaa", info: "#00ffff" };
+              entry.style.color = typeColors[type] || typeColors.info;
+
+              // Prepend new entry
+              logEntries.insertBefore(entry, logEntries.firstChild);
+
+              // Limit log entries
+              const maxLogEntries = 50;
+              while (logEntries.children.length > maxLogEntries) {
+                  logEntries.removeChild(logEntries.lastChild);
+              }
+         }
+
+        // --- Cleanup (Optional) ---
+         window.addEventListener('beforeunload', () => {
+             // State is saved on actions like purchase, select, launch.
+             // Usually not needed here unless there's unsaved input.
+             // console.log("Spaceport closing...");
+         });
+
+    </script>
+</body>
+</html>

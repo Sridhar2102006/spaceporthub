@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Regolith Dust Analysis</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #e67e22;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --danger: #e74c3c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .model-container {
+            position: relative;
+            height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .model-container:hover {
+            transform: translateY(-5px);
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            background-color: var(--light);
+        }
+
+        .info-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background-color: var(--accent);
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .tab:hover:not(.active) {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        ul {
+            list-style-position: inside;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 500;
+        }
+
+        .danger {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            background-color: #d35400;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(230, 126, 34, 0.3);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(230, 126, 34, 0.1);
+        }
+
+        .property {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .property:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .property-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .property-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.75rem;
+            color: var(--accent);
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+            cursor: help;
+            border-bottom: 1px dotted #999;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 0.5rem;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.9rem;
+            font-weight: normal;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .interactive-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .ar-button {
+            background-color: #4285f4 !important;
+            color: white !important;
+            border: none !important;
+            padding: 10px 20px !important;
+            border-radius: 4px !important;
+            font-family: inherit !important;
+            cursor: pointer !important;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lunar Regolith Dust Analysis</h1>
+            <p class="subtitle">Interactive 3D Visualization of Moon Dust Properties</p>
+        </header>
+
+        <div class="main-content">
+            <div class="model-container">
+                <model-viewer 
+                    src="main3dmodel.glb"
+                    alt="3D model of lunar regolith dust"
+                    auto-rotate
+                    camera-controls
+                    ar
+                    environment-image="neutral"
+                    shadow-intensity="1.5"
+                    exposure="0.8">
+                    <button slot="ar-button" class="ar-button">
+                        View in AR
+                    </button>
+                </model-viewer>
+            </div>
+
+            <div class="info-panel">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="properties">Properties</div>
+                    <div class="tab" data-tab="hazards">Hazards</div>
+                    <div class="tab" data-tab="mitigation">Mitigation</div>
+                </div>
+
+                <div class="tab-content active" id="properties">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🔬</span>
+                            <h3>Composition</h3>
+                        </div>
+                        <ul>
+                            <li>Primarily <span class="highlight">silicate minerals</span> (45-50%)</li>
+                            <li><span class="highlight">Iron-rich</span> particles (15-20%)</li>
+                            <li><span class="highlight">Impact glass</span> from micrometeorites</li>
+                            <li>Trace amounts of <span class="highlight">solar wind-implanted gases</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">📏</span>
+                            <h3>Physical Characteristics</h3>
+                        </div>
+                        <ul>
+                            <li>Particle size: <span class="highlight">20μm to 1mm</span></li>
+                            <li>Extremely <span class="highlight">angular and sharp</span></li>
+                            <li><span class="highlight">Electrostatically charged</span> by solar wind</li>
+                            <li>Low <span class="highlight">thermal conductivity</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="hazards">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">⚠️</span>
+                            <h3>Health Risks</h3>
+                        </div>
+                        <ul>
+                            <li><span class="danger">Respiratory damage</span> if inhaled</li>
+                            <li>Potential <span class="danger">toxicity</span> from fine particles</li>
+                            <li>Skin and eye <span class="danger">irritation</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🔧</span>
+                            <h3>Equipment Damage</h3>
+                        </div>
+                        <ul>
+                            <li><span class="danger">Abrasion</span> of moving parts</li>
+                            <li>Degradation of <span class="danger">seals and gaskets</span></li>
+                            <li>Interference with <span class="danger">electrical systems</span></li>
+                            <li>Reduced <span class="danger">thermal control</span> efficiency</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="mitigation">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🛡️</span>
+                            <h3>Protection Strategies</h3>
+                        </div>
+                        <ul>
+                            <li><span class="highlight">Dust-resistant</span> spacesuit materials</li>
+                            <li><span class="highlight">Electrostatic cleaning</span> systems</li>
+                            <li>Advanced <span class="highlight">air filtration</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🏗️</span>
+                            <h3>Engineering Solutions</h3>
+                        </div>
+                        <ul>
+                            <li><span class="highlight">Magnetic filtration</span> for habitats</li>
+                            <li><span class="highlight">Self-cleaning</span> surfaces</li>
+                            <li><span class="highlight">Modular components</span> for easy replacement</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="interactive-controls">
+                    <button class="btn" id="rotate-btn">Toggle Rotation</button>
+                    <button class="btn btn-outline" id="info-btn">More Information</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Model viewer controls
+        const modelViewer = document.querySelector('model-viewer');
+        const rotateBtn = document.getElementById('rotate-btn');
+
+        rotateBtn.addEventListener('click', () => {
+            if (modelViewer.getAttribute('auto-rotate') === '') {
+                modelViewer.removeAttribute('auto-rotate');
+                rotateBtn.textContent = 'Start Rotation';
+            } else {
+                modelViewer.setAttribute('auto-rotate', '');
+                rotateBtn.textContent = 'Stop Rotation';
+            }
+        });
+
+        // Info button functionality
+        const infoBtn = document.getElementById('info-btn');
+        infoBtn.addEventListener('click', () => {
+            alert("For more detailed scientific information about lunar regolith, please visit NASA's official resources on lunar science and exploration.");
+        });
+
+        // Add tooltip functionality
+        const tooltips = document.querySelectorAll('.tooltip');
+        tooltips.forEach(tooltip => {
+            const text = tooltip.getAttribute('data-tooltip');
+            const tooltipSpan = document.createElement('span');
+            tooltipSpan.className = 'tooltiptext';
+            tooltipSpan.textContent = text;
+            tooltip.appendChild(tooltipSpan);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Water Ice Analysis (PSRs)</title>
+    <!-- Loads <model-viewer> for modern browsers: -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        /* Using the enhanced CSS from the previous Helium-3 example */
+        :root {
+            --primary: #1F2B3E; /* Darker blue-gray */
+            --secondary: #4A5A71; /* Muted blue-gray */
+            --accent: #00AEEF; /* Bright cyan/blue accent */
+            --light: #F4F7F9; /* Very light gray */
+            --dark: #121822;
+            --danger: #E74C3C;
+            --success: #2ECC71; /* Keep green for success/potential */
+            --text-color: #333;
+            --light-text: #555;
+            --ice-blue: #A0D2EB; /* Specific color for ice context */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background: linear-gradient(180deg, var(--light) 0%, #EAEFF3 100%);
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1250px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 2px solid rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.8rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.3rem;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 2.5rem;
+            margin-top: 2rem;
+            align-items: start;
+        }
+
+        .model-container {
+            position: sticky;
+            top: 2rem;
+            height: 550px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 12px 35px rgba(44, 62, 80, 0.15);
+            border: 1px solid rgba(0,0,0,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .model-container:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 18px 45px rgba(44, 62, 80, 0.2);
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            background-color: #E0E5EA; /* Neutral background */
+             --progress-bar-color: var(--accent);
+             cursor: grab; /* Indicate interactibility */
+        }
+        model-viewer:active {
+             cursor: grabbing;
+        }
+
+
+        .info-panel {
+            background: #FFFFFF; /* Use white */
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 12px 35px rgba(44, 62, 80, 0.12);
+            border-top: 5px solid var(--ice-blue); /* Use ice-blue accent */
+             position: relative;
+             overflow: visible;
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 0.8rem 1.6rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.25s ease-in-out;
+            font-weight: 600;
+            color: var(--secondary);
+            margin-bottom: -2px;
+            position: relative;
+        }
+
+        .tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 3px;
+            background-color: var(--ice-blue); /* Use ice-blue */
+            transition: width 0.25s ease-in-out;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--ice-blue); /* Use ice-blue */
+        }
+
+        .tab:hover:not(.active) {
+            color: var(--primary);
+             background-color: rgba(160, 210, 235, 0.1); /* Light ice-blue hover */
+        }
+
+         .tab.active::after,
+         .tab:hover::after {
+              width: 70%;
+         }
+
+        .tab-content { display: none; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-content.active { display: block; }
+
+        h3 {
+            color: var(--primary);
+            margin-bottom: 1.25rem;
+            font-size: 1.45rem;
+            font-weight: 600;
+            padding-bottom: 0.5rem;
+             border-bottom: 1px solid #eee;
+        }
+
+        ul { list-style-position: inside; margin-bottom: 1.5rem; padding-left: 0; }
+        li { margin-bottom: 0.8rem; list-style: none; position: relative; padding-left: 2rem; line-height: 1.8; }
+
+         li::before {
+             position: absolute; left: 0; top: 5px; font-size: 1.2rem; line-height: 1;
+         }
+         /* Specific icons for water ice topic */
+         #properties ul li::before { content: '❄️'; color: var(--ice-blue); } /* Snowflake */
+         #formation ul li::before { content: '☄️'; color: #7f8c8d; } /* Comet */
+         #significance ul li::before { content: '💧'; color: var(--accent); } /* Water Droplet */
+
+
+        .highlight {
+            color: var(--ice-blue); /* Use ice-blue */
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 1px dashed var(--ice-blue); /* Use ice-blue */
+            transition: background-color 0.2s ease, color 0.2s ease;
+            padding: 0.05em 0.1em;
+            background-color: transparent;
+        }
+         .highlight:hover {
+             background-color: rgba(160, 210, 235, 0.15); /* Light ice background */
+              color: #6fa7c6; /* Darker ice blue */
+         }
+
+        .btn { /* General button style - adapted from previous */
+            display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.8rem 1.8rem;
+            background: linear-gradient(145deg, var(--accent), #007aaf); /* Keep main action blue */
+            color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1rem; font-weight: 500;
+            transition: all 0.3s ease; text-decoration: none; margin-top: 1rem;
+             box-shadow: 0 4px 10px rgba(0, 174, 239, 0.3);
+        }
+         .btn:hover { background: linear-gradient(145deg, #009bd6, #006a8f); transform: translateY(-3px); box-shadow: 0 7px 15px rgba(0, 174, 239, 0.4); }
+         .btn:active { transform: translateY(-1px); box-shadow: 0 2px 5px rgba(0, 174, 239, 0.3); }
+
+        .btn-outline {
+             background: transparent;
+             border: 2px solid var(--ice-blue); /* Outline in ice-blue */
+             color: var(--ice-blue); /* Text in ice-blue */
+             box-shadow: none;
+             padding: calc(0.8rem - 2px) calc(1.8rem - 2px);
+         }
+         .btn-outline:hover {
+             background: rgba(160, 210, 235, 0.1);
+             color: #6fa7c6; /* Darker ice blue */
+              border-color: #8cbdd9; /* Slightly darker border */
+              transform: translateY(-2px);
+             box-shadow: 0 4px 10px rgba(160, 210, 235, 0.1);
+         }
+          .btn-outline:active { background: rgba(160, 210, 235, 0.2); transform: translateY(0px); box-shadow: none; }
+
+
+         /* Button Icons (adjust content/style as needed) */
+        .btn .btn-icon { /* Style for icons within buttons */
+            display: inline-block;
+            margin-right: 0.4em; /* Adjust spacing */
+            line-height: 1; /* Prevent extra vertical space */
+         }
+
+        .interactive-controls { display: flex; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+
+        .ar-button { /* Styles largely inherited/adapted from .btn */
+             display: inline-flex !important; align-items: center !important; gap: 0.5rem !important;
+             padding: 10px 20px !important; background: linear-gradient(145deg, #4285f4, #3367d6) !important;
+             color: white !important; border: none !important; border-radius: 6px !important; font-family: inherit !important;
+             cursor: pointer !important; font-size: 1rem !important; font-weight: 500 !important; transition: all 0.3s ease !important;
+             box-shadow: 0 4px 10px rgba(66, 133, 244, 0.3) !important;
+         }
+         .ar-button::before { content: '📱'; margin-right: 0.5rem; }
+         .ar-button:hover { background: linear-gradient(145deg, #3367d6, #2a56c6) !important; transform: translateY(-3px) !important; box-shadow: 0 7px 15px rgba(66, 133, 244, 0.4) !important; }
+
+        /* Modal Styles (Enhanced version retained) */
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(31, 43, 62, 0.8); backdrop-filter: blur(5px); animation: modalFadeIn 0.3s ease-out; }
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-content { background-color: #ffffff; margin: 8% auto; padding: 2.5rem 3rem; border-radius: 10px; width: 90%; max-width: 800px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); position: relative; border-top: 6px solid var(--ice-blue); /* Use ice-blue accent */ animation: modalSlideIn 0.4s ease-out; }
+        @keyframes modalSlideIn { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+        .close-modal { position: absolute; top: 1.5rem; right: 1.5rem; font-size: 1.8rem; font-weight: 300; color: #999; cursor: pointer; width: 30px; height: 30px; line-height: 30px; text-align: center; transition: all 0.2s ease; border-radius: 50%; }
+        .close-modal:hover { color: var(--primary); background-color: #eee; transform: rotate(90deg); }
+        .modal-title { color: var(--primary); margin-bottom: 1.5rem; font-size: 1.8rem; font-weight: 600; padding-bottom: 0.8rem; border-bottom: 1px solid #eee; }
+        .modal-image { width: 100%; max-height: 300px; object-fit: contain; border-radius: 6px; margin: 1.5rem 0; background-color: #f0f0f0; border: 1px solid #ddd; }
+        .modal ul { margin-top: 1rem; padding-left: 1.5rem; list-style: disc; } /* Style lists inside modals */
+        .modal li { list-style: disc; padding-left: 0.5rem; } /* Adjust list style inside modals */
+        .modal li::before { content: ''; /* Override default icon for modal lists */ }
+
+        @media (max-width: 768px) { /* Responsive styles retained */
+            .main-content { grid-template-columns: 1fr; }
+            .model-container { position: relative; height: 400px; top: 0; }
+            .modal-content { width: 95%; margin: 10% auto; padding: 1.5rem; }
+            h1 { font-size: 2.2rem; }
+            .subtitle { font-size: 1.1rem; }
+            .tab { padding: 0.7rem 1rem; }
+            .modal-title { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lunar Water Ice Analysis</h1>
+            <p class="subtitle">Exploring Minimal Water Ice in Permanently Shadowed Craters</p>
+        </header>
+
+        <div class="main-content">
+            <div class="model-container">
+                <model-viewer
+                src="watersample.glb"
+                alt="A 3D model of lunar regolith with Helium-3 particles"
+                camera-controls
+                auto-rotate
+                ar
+                shadow-intensity="1"
+                exposure="0.8"
+                environment-image="neutral"
+                interaction-prompt="none"
+            >
+            </div>
+
+            <div class="info-panel">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="properties">Nature & Location</div>
+                    <div class="tab" data-tab="formation">Origin & Trapping</div>
+                    <div class="tab" data-tab="significance">Significance & Detection</div>
+                </div>
+
+                <!-- ===== Content Updated for Lunar Water Ice ===== -->
+                <div class="tab-content active" id="properties">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">❄️</span>
+                            <h3>What is Lunar Ice?</h3>
+                        </div>
+                        <ul>
+                            <li>Primarily <span class="highlight" onclick="openModal('water-ice')">Water Ice (H₂O)</span> identified in specific lunar locations.</li>
+                            <li>Exists often mixed with <span class="highlight" onclick="openModal('regolith')">lunar regolith</span> (soil) rather than as pure sheets or blocks.</li>
+                            <li>Concentrations are generally low, often only a few <span class="highlight" onclick="openModal('weight-percent')">weight percent</span>, but can be higher in some deposits.</li>
+                            <li>Represents 'minimal' deposits in terms of concentration, not necessarily total volume across all locations.</li>
+                            <li>Likely very fine-grained ice crystals mixed interstitially with soil grains.</li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                           <span class="property-icon">🗺️</span>
+                           <h3>Permanently Shadowed Regions (PSRs)</h3>
+                        </div>
+                        <ul>
+                            <li>Found mainly within deep craters near the Moon's North and South poles <span class="highlight" onclick="openModal('psr')">(PSRs)</span>.</li>
+                            <li>These regions never receive direct sunlight due to the Moon's low axial tilt (~1.5°).</li>
+                            <li>Temperatures in PSRs are incredibly cold, dropping below -173°C (-280°F) and even down to -240°C (-400°F) in the coldest spots.</li>
+                            <li>These extreme cold conditions act as <span class="highlight" onclick="openModal('cold-trap')">"cold traps"</span>, allowing volatile compounds like water ice to accumulate and remain stable over geologic timescales.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="formation">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">☄️</span>
+                            <h3>Delivery Mechanisms</h3>
+                        </div>
+                        <ul>
+                            <li>Impacts from water-bearing <span class="highlight" onclick="openModal('comets-asteroids')">comets and asteroids</span> over billions of years are a primary proposed source.</li>
+                            <li>Interaction of <span class="highlight" onclick="openModal('solar-wind-h')">solar wind hydrogen</span> ions with oxygen atoms present in lunar rocks and soil (silicates/oxides) can form hydroxyl (OH) and potentially water (H₂O).</li>
+                            <li>Possibility of primordial water incorporated during the Moon's formation, though less favored for surface ice.</li>
+                            <li>Water molecules migrating across the lunar surface can become trapped when they enter the ultra-cold PSRs.</li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                         <div class="property-title">
+                            <span class="property-icon">🔒</span>
+                             <h3>Trapping & Accumulation</h3>
+                         </div>
+                         <ul>
+                            <li>The extreme cold within PSRs prevents trapped water molecules from easily sublimating (turning directly from solid to gas) back into space.</li>
+                            <li>Ice accumulates over long periods, likely mixed with regolith through subsequent small impacts ("gardening").</li>
+                            <li>The distribution is expected to be patchy and potentially vary significantly with depth and location within a PSR.</li>
+                            <li>Subsurface ice might be more stable and protected from sputtering by solar wind and micrometeoroids.</li>
+                         </ul>
+                     </div>
+                 </div>
+
+                <div class="tab-content" id="significance">
+                     <div class="property">
+                         <div class="property-title">
+                            <span class="property-icon">💧</span>
+                             <h3>Crucial Resource Potential</h3>
+                         </div>
+                         <ul>
+                             <li>Considered a vital resource for future sustainable lunar exploration and habitation (<span class="highlight" onclick="openModal('isru')">ISRU</span>).</li>
+                             <li>Can provide drinking water and breathable oxygen (via electrolysis) for astronauts.</li>
+                             <li>Water can be broken down into hydrogen and oxygen, key components for <span class="highlight" onclick="openModal('rocket-propellant')">rocket propellant</span>, potentially refueling spacecraft for deeper space missions.</li>
+                             <li>Utilizing lunar ice avoids the immense cost of transporting water from Earth.</li>
+                         </ul>
+                     </div>
+
+                     <div class="property">
+                         <div class="property-title">
+                            <span class="property-icon">🔬</span>
+                             <h3>Scientific Insights</h3>
+                         </div>
+                         <ul>
+                             <li>Provides clues about the delivery history of water and other volatiles in the inner Solar System.</li>
+                             <li>Contains a record of past solar activity and galactic cosmic ray flux.</li>
+                             <li>Understanding its origin and distribution informs models of planetary formation and evolution.</li>
+                             <li>May harbor other trapped volatile compounds besides water ice.</li>
+                         </ul>
+                     </div>
+                      <div class="property">
+                          <div class="property-title">
+                             <span class="property-icon">📡</span>
+                              <h3>Detection & Missions</h3>
+                          </div>
+                          <ul>
+                             <li>Initial hints from Clementine (Bi-static radar) and Lunar Prospector (Neutron Spectrometer).</li>
+                              <li>Strong evidence from NASA's <span class="highlight" onclick="openModal('lro')">Lunar Reconnaissance Orbiter (LRO)</span> using instruments like LEND, LAMP, Diviner, and Mini-RF.</li>
+                              <li>Confirmation via the <span class="highlight" onclick="openModal('lcross')">LCROSS</span> mission impact experiment, which detected water vapor and ice in the plume created by an impacting upper stage.</li>
+                              <li>Future missions like NASA's <span class="highlight" onclick="openModal('viper')">VIPER</span> rover aim for ground-truth verification, mapping ice concentration and accessibility at the surface and shallow subsurface.</li>
+                          </ul>
+                      </div>
+                 </div>
+                <!-- ===== End Lunar Water Ice Content ===== -->
+
+                <div class="interactive-controls">
+                    <button class="btn" id="rotate-btn">
+                        <span class="btn-icon">▶️</span> <!-- Initial Icon -->
+                        Start Rotation
+                    </button>
+                    <button class="btn btn-outline" id="missions-btn">
+                        <span class="btn-icon">🛰️</span>
+                        Key Missions
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==== MODAL POPUPS (Updated for Water Ice) ==== -->
+
+    <div id="water-ice" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Water Ice (H₂O)</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e5/Water_ice_lattice_animation.gif/220px-Water_ice_lattice_animation.gif" alt="Water Ice Lattice Structure" class="modal-image"> <p>Water ice is the solid form of water (H₂O). On the Moon, evidence points to its existence primarily in Permanently Shadowed Regions near the poles. Unlike terrestrial glaciers, lunar ice is likely mixed with the regolith (soil) as fine grains or pore-filling deposits, often at concentrations of a few percent by weight. Its stability in PSRs is due to the extremely low temperatures, which prevent sublimation.</p> </div> </div>
+    <div id="psr" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Permanently Shadowed Regions (PSRs)</h3> <img src="https://moon.nasa.gov/internal_resources/819/" alt="LRO image showing Shackleton Crater PSR" class="modal-image"> <p>Permanently Shadowed Regions (PSRs) are areas near the lunar poles, typically within deep craters, that never receive direct sunlight. Due to the Moon's small axial tilt (~1.5°), the sun angle is always very low near the poles, leaving the floors of some craters in perpetual shadow. Temperatures in these regions are among the coldest known in the solar system (below -173°C / -280°F), making them "cold traps" where volatile substances like water ice can accumulate and remain stable for billions of years.</p> </div> </div>
+    <div id="regolith" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Lunar Regolith</h3> <img src="https://www.nasa.gov/sites/default/files/styles/full_width_feature/public/thumbnails/image/as17-137-21011.jpg" alt="Lunar Regolith footprint" class="modal-image"> <p>Lunar regolith is the layer of loose dust, soil, broken rock fragments, and glassy particles covering the Moon's solid bedrock. Formed by continuous bombardment by meteoroids and micrometeoroids over billions of years, it's the material astronauts walked on and where solar wind particles are implanted. In PSRs, regolith acts as the host material for water ice, which exists mixed within this soil layer.</p> </div> </div>
+    <div id="weight-percent" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Weight Percent (wt%)</h3> <p>Weight percent (wt%) is a common way to express the concentration of a substance within a mixture. It represents the ratio of the mass of the substance of interest to the total mass of the mixture, multiplied by 100. For example, if a 100 gram sample of lunar regolith contains 3 grams of water ice, the ice concentration is 3 wt%. Estimates for water ice in some lunar PSRs range from fractions of a percent up to potentially 5-10 wt% in localized "rich" deposits, but it's generally considered to be low on average.</p> </div> </div>
+    <div id="comets-asteroids" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Comets and Asteroids</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/Animation_of_Rosetta_mission_-_complete.gif/320px-Animation_of_Rosetta_mission_-_complete.gif" alt="Rosetta comet animation" class="modal-image"> <p>Comets (icy bodies from the outer solar system) and certain types of asteroids (carbonaceous chondrites) contain significant amounts of water ice and other volatile compounds. Impacts from these objects onto the Moon throughout its history are considered a major source of the water now potentially trapped in PSRs. Water vapor released during an impact could migrate across the surface and freeze out in the polar cold traps.</p> </div> </div>
+    <div id="solar-wind-h" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Solar Wind Hydrogen</h3> <img src="https://svs.gsfc.nasa.gov/vis/a010000/a012900/a012933/SolarWind-Fig1.png" alt="Solar Wind Diagram" class="modal-image"> <p>The solar wind constantly delivers hydrogen ions (protons) to the lunar surface. These hydrogen ions can interact chemically with oxygen atoms bound within the minerals (oxides and silicates) of the lunar regolith. This interaction can form hydroxyl (OH) groups and potentially small amounts of water (H₂O) molecules directly on the surface or within the grains. While likely a smaller contributor than impacts, it represents a continuous potential source of water precursors.</p> </div> </div>
+    <div id="cold-trap" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Cold Traps</h3> <img src="https://d2pn8kiwq2w21b.cloudfront.net/original_images/jpegPIA13782.jpg" alt="LRO temperature map showing cold traps" class="modal-image"> <p>A cold trap is a region so cold that volatile chemical compounds (like water, ammonia, methane, CO₂) that enter it freeze solid and have very low rates of sublimation (turning from solid to gas). On the Moon, the Permanently Shadowed Regions near the poles serve as excellent cold traps due to their extremely low, stable temperatures, allowing water ice delivered by impacts or formed in-situ to accumulate over geologic time without escaping back into space.</p> </div> </div>
+    <div id="isru" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">ISRU (In-Situ Resource Utilization)</h3> <img src="https://www.nasa.gov/sites/default/files/styles/full_width/public/thumbnails/image/artemis_iii_depiction_-_working_near_lander.jpg?itok=Y6M25OIm" alt="Artist conception of lunar ISRU" class="modal-image"> <p>In-Situ Resource Utilization (ISRU) involves using resources found or manufactured at a location in space (like the Moon) instead of bringing them from Earth. Accessing and processing lunar water ice is a prime ISRU goal. The extracted water can be used directly for life support (drinking, sanitation) or split via electrolysis into hydrogen and oxygen, which can provide breathable air for habitats and serve as powerful rocket propellant.</p> </div> </div>
+    <div id="rocket-propellant" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Rocket Propellant from Water</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/Space_Shuttle_External_Tank_schematic.svg/600px-Space_Shuttle_External_Tank_schematic.svg.png" alt="Space Shuttle Tank Schematic showing LH2/LOX" class="modal-image"> <p>Water (H₂O) can be split into its constituent elements, hydrogen (H₂) and oxygen (O₂), using electrolysis. Liquid hydrogen (LH₂) as fuel and liquid oxygen (LOX) as oxidizer form a highly efficient and powerful chemical rocket propellant combination (cryogenic propellant). Producing propellant from lunar water ice via ISRU could enable refueling of spacecraft on the Moon, supporting more ambitious missions to Mars and beyond by avoiding the high cost of launching propellant from Earth's deep gravity well.</p> </div> </div>
+    <div id="lro" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Lunar Reconnaissance Orbiter (LRO)</h3> <img src="https://www.nasa.gov/sites/default/files/styles/full_width_feature/public/thumbnails/image/lro-render-no-glow_0.jpg" alt="LRO Spacecraft" class="modal-image"> <p>NASA's Lunar Reconnaissance Orbiter (LRO), launched in 2009 and still operating, has been instrumental in mapping the Moon and searching for resources. Its suite of instruments provided key evidence for water ice in PSRs. Notably: LEND (neutron detection indicates hydrogen concentration), LAMP (UV spectrograph detects surface frost), Mini-RF (radar signals sensitive to ice), and Diviner (precise temperature mapping confirms cold trap conditions).</p> </div> </div>
+    <div id="lcross" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">LCROSS Mission</h3> <img src="https://www.nasa.gov/sites/default/files/styles/full_width_feature/public/thumbnails/image/edu_lcross_impact_large.jpg" alt="LCROSS Impact plume simulation" class="modal-image"> <p>The Lunar Crater Observation and Sensing Satellite (LCROSS) mission, launched with LRO in 2009, was designed for a direct impact experiment. It guided its spent Centaur upper stage rocket booster to impact Cabeus crater, a PSR near the Moon's south pole. The smaller LCROSS "shepherding" spacecraft flew through the resulting debris plume, analyzing its composition with spectrometers before making its own impact. The mission confirmed the presence of water (estimated ~5.6 wt%) and other volatiles in the plume.</p> </div> </div>
+    <div id="viper" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">VIPER Rover</h3> <img src="https://www.nasa.gov/sites/default/files/thumbnails/image/viper_illustration_full_width.png" alt="VIPER Rover Illustration" class="modal-image"> <p>The Volatiles Investigating Polar Exploration Rover (VIPER) is an upcoming NASA robotic mission scheduled for launch in the mid-2020s. It will be the first rover specifically designed to explore PSRs for water ice. VIPER will carry instruments including a drill (capable of reaching 1 meter deep), neutron spectrometer (NSS), near-infrared spectrometer (NIRVSS), and mass spectrometer (MSolo) to map the location, concentration, form, and accessibility of water ice and other resources near the lunar South Pole, providing critical ground-truth data for future ISRU efforts.</p> </div> </div>
+    <div id="missions-summary" class="modal"> <div class="modal-content"> <span class="close-modal">×</span> <h3 class="modal-title">Key Missions for Lunar Ice</h3> <p>Several space missions have provided crucial data about water ice on the Moon, particularly in Permanently Shadowed Regions (PSRs):</p> <ul> <li><strong>Lunar Prospector (1998-1999):</strong> Carried a neutron spectrometer that detected elevated hydrogen concentrations at the poles, suggesting the presence of water ice.</li> <li><strong>LRO (Lunar Reconnaissance Orbiter, 2009-present):</strong> Provides ongoing high-resolution mapping, temperature data (Diviner), hydrogen mapping (LEND), UV surface frost detection (LAMP), and radar sounding (Mini-RF), collectively building strong evidence for ice. <span class="highlight" onclick="openModal('lro')">(More info)</span></li> <li><strong>LCROSS (2009):</strong> Directly detected water vapor and ice fragments in the plume created by impacting a PSR, providing compositional confirmation. <span class="highlight" onclick="openModal('lcross')">(More info)</span></li> <li><strong>Chandrayaan-1 (India, 2008-2009):</strong> Carried NASA's Moon Mineralogy Mapper (M³) which detected hydroxyl and water signatures across the surface, not limited to poles but enhanced there. Also carried Mini-SAR radar.</li> <li><strong>VIPER (Upcoming):</strong> A dedicated rover designed to travel into PSRs, drill, and directly measure water ice concentration and distribution. <span class="highlight" onclick="openModal('viper')">(More info)</span></li> </ul> </div> </div>
+
+
+    <!-- ==== END MODAL POPUPS ==== -->
+
+    <script>
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                const activeContent = document.getElementById(tabId);
+                if (activeContent) {
+                    activeContent.classList.add('active');
+                }
+            });
+        });
+
+        // Model viewer controls
+        const modelViewer = document.querySelector('#water-model'); // Use ID selector
+        const rotateBtn = document.getElementById('rotate-btn');
+
+        if (modelViewer && rotateBtn) {
+            // Initial button state setup based on whether auto-rotate is initially set
+            let isRotating = modelViewer.hasAttribute('auto-rotate');
+            rotateBtn.innerHTML = `<span class="btn-icon">${isRotating ? '🔄' : '▶️'}</span> ${isRotating ? 'Stop Rotation' : 'Start Rotation'}`;
+
+            rotateBtn.addEventListener('click', () => {
+                if (modelViewer.hasAttribute('auto-rotate')) {
+                    modelViewer.removeAttribute('auto-rotate');
+                    rotateBtn.innerHTML = '<span class="btn-icon">▶️</span> Start Rotation';
+                    isRotating = false;
+                } else {
+                    modelViewer.setAttribute('auto-rotate', '');
+                    rotateBtn.innerHTML = '<span class="btn-icon">🔄</span> Stop Rotation';
+                    isRotating = true;
+                }
+            });
+
+            // Optional: Stop auto-rotate on user interaction if desired
+            // modelViewer.addEventListener('camera-change', (event) => {
+            //    if(event.detail.source === 'user-interaction' && modelViewer.hasAttribute('auto-rotate')) {
+            //       modelViewer.removeAttribute('auto-rotate');
+            //       rotateBtn.innerHTML = '<span class="btn-icon">▶️</span> Start Rotation';
+            //       isRotating = false;
+            //    }
+            // });
+
+
+        } else {
+             console.error("Model viewer (#water-model) or rotate button (#rotate-btn) not found");
+             if(rotateBtn) rotateBtn.disabled = true; // Disable button if model not found
+        }
+
+        // Modal functions
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'block';
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            } else {
+                console.error("Modal with ID '" + modalId + "' not found.");
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto'; // Restore background scrolling
+            }
+        }
+
+        // Attach close button listeners (Improved method)
+        document.querySelectorAll('.close-modal').forEach(button => {
+            const modal = button.closest('.modal');
+            if (modal) {
+                 button.onclick = null; // Remove any potential inline handler first
+                 button.addEventListener('click', () => closeModal(modal.id));
+            }
+        });
+
+        // Close modal when clicking backdrop
+        window.addEventListener('click', (event) => {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target === modal) {
+                    closeModal(modal.id);
+                }
+            });
+        });
+
+        // Missions Button functionality
+        const missionsBtn = document.getElementById('missions-btn');
+         if (missionsBtn) {
+             const targetModalId = 'missions-summary';
+              if(document.getElementById(targetModalId)) {
+                    missionsBtn.onclick = null; // Remove any inline onclick
+                    missionsBtn.addEventListener('click', () => openModal(targetModalId));
+              } else {
+                    console.error("Missions Summary modal (#" + targetModalId + ") not found, disabling button.");
+                    missionsBtn.disabled = true; // Disable if target modal missing
+                    missionsBtn.style.opacity = '0.5';
+              }
+         } else {
+             console.error("Missions button (#missions-btn) not found.");
+         }
+
+        // Ensure highlights trigger modals correctly (keep onclick for simplicity here or convert)
+        // Example of converting one:
+        // const waterIceHighlight = document.querySelector('.highlight[onclick*="water-ice"]');
+        // if (waterIceHighlight) {
+        //     waterIceHighlight.removeAttribute('onclick');
+        //     waterIceHighlight.addEventListener('click', () => openModal('water-ice'));
+        // }
+        // You would repeat this for all highlights if you wanted to remove all inline JS
+
+    </script>
+</body>
+</html>

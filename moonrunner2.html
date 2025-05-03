@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astronaut Sphere Runner - Simple Orientation</title> {/* Title Updated */}
+    <style>/* ... CSS unchanged ... */ body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #000; color: white; } #game-container { position: relative; width: 100vw; height: 100vh; } #game-canvas { display: block; } #info { position: absolute; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; z-index: 10; } #status { font-weight: bold; color: yellow; } </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="game-container"><canvas id="game-canvas"></canvas></div>
+    <div id="info">Use Left/Right Arrow Keys to Move<br><span id="status">Loading...</span></div>
+
+    <script> // No type="module"
+        // --- JAVASCRIPT START ---
+        const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setClearColor(0x000000); renderer.shadowMap.enabled = true; const statusElement = document.getElementById('status');
+        // Lighting setup (kept from recent versions)
+        const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.7); scene.add(ambientLight); const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); directionalLight.position.set(5, 15, 10); directionalLight.castShadow = true; directionalLight.shadow.mapSize.width = 1024; directionalLight.shadow.mapSize.height = 1024; directionalLight.shadow.camera.near = 0.5; directionalLight.shadow.camera.far = 50; directionalLight.shadow.bias = -0.0005; scene.add(directionalLight);
+
+        let player = null; let mixer = null; let clock = new THREE.Clock(); let runAction = null; let currentAction = null;
+        let lanes = [-4, 0, 4]; let currentLane = 1; let targetLane = 1; const laneSwitchSpeed = 10; let gameSpeed = 5; const baseGameSpeed = 5; const maxGameSpeed = 15; const acceleration = 0.05; let isGameRunning = false;
+        let loadedAssets = 0; const totalAssets = 3; // model, moon_color, earth_night
+
+        const textureLoader = new THREE.TextureLoader(); let moonColorTexture = null; let earthNightTexture = null;
+
+        function onAssetLoaded(assetName = 'Asset') { /* ... (unchanged asset loading logic) ... */ loadedAssets++; console.log(`${assetName} loaded (${loadedAssets}/${totalAssets})`); statusElement.textContent = `Loading ${loadedAssets}/${totalAssets}...`; if (loadedAssets === totalAssets) { console.log("--- All assets loaded ---"); setupSceneAssets(); setupPlayer(); console.log("--- Calling startGame (delayed) ---"); setTimeout(startGame, 500); } }
+
+        textureLoader.load('assets/moon_color.jpg', (texture) => { moonColorTexture = texture; moonColorTexture.wrapS = THREE.RepeatWrapping; moonColorTexture.wrapT = THREE.RepeatWrapping; moonColorTexture.repeat.set(4, 2); texture.center.set(0.5, 0.5); texture.rotation = -Math.PI / 2; onAssetLoaded('Moon Color Texture'); }, undefined, (err) => { console.error('Error loading moon color texture:', err); statusElement.textContent = 'Error loading moon texture!'; });
+        textureLoader.load('assets/earth_night.jpg', (texture) => { earthNightTexture = texture; onAssetLoaded('Earth Night Texture'); }, undefined, (err) => { console.error('Error loading earth night texture:', err); statusElement.textContent = 'Error loading earth texture!'; });
+
+        const gltfLoader = new THREE.GLTFLoader(); let playerModelRunning; statusElement.textContent = `Loading 1/${totalAssets}...`; gltfLoader.load('assets/astronaut_running.glb', (gltf) => { playerModelRunning = gltf.scene; playerModelRunning.animations = gltf.animations; onAssetLoaded('Astronaut Model'); }, undefined, (error) => { console.error('Error loading running model:', error); statusElement.textContent = "Error loading running model!"; });
+
+        const sphereRadius = 50; const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 128, 64); const sphereMaterial = new THREE.MeshStandardMaterial({ map: null, roughness: 0.95, metalness: 0.05 }); let sphereGround = null; let earthMesh = null; const sphereCenterY = -sphereRadius - 0.5; const sphereCenter = new THREE.Vector3(0, sphereCenterY, 0);
+
+        let stars = null; function createStars() { /* ... (stars code unchanged) ... */ const starGeometry = new THREE.BufferGeometry(); const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, sizeAttenuation: true }); const starVertices = []; const starCount = 5000; const starRadius = 400; for (let i = 0; i < starCount; i++) { const phi = Math.acos(-1 + (2 * Math.random())); const theta = Math.sqrt(starCount * Math.PI) * phi; const r = Math.cbrt(Math.random()) * starRadius; const x = r * Math.sin(phi) * Math.cos(theta); const y = r * Math.sin(phi) * Math.sin(theta); const z = r * Math.cos(phi); starVertices.push(x, y, z); } starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3)); stars = new THREE.Points(starGeometry, starMaterial); stars.renderOrder = -1; scene.add(stars); console.log("Stars created"); } createStars();
+
+        const coinGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.1, 16); const coinMaterial = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.5, roughness: 0.2 }); const coins = []; const coinPoolSize = 20; const coinSpawnDistance = 50; const coinSpawnRate = 0.8; let lastCoinSpawnTime = 0; const coinFloatHeight = 0.4; const coinSpinSpeed = 1.5;
+        const normalVector = new THREE.Vector3(); const upVector = new THREE.Vector3(0, 1, 0); const tempQuaternion = new THREE.Quaternion(); const alignXVector = new THREE.Vector3(1, 0, 0);
+
+        function calculateYOnSphere(x, z, radius, centerY) { /* ... (unchanged) ... */ const xzDistSq = x * x + z * z; if (xzDistSq >= radius * radius) { return centerY; } const yRel = Math.sqrt(radius * radius - xzDistSq); return yRel + centerY; }
+        function createCoinPool() { /* ... (unchanged) ... */ for (let i = 0; i < coinPoolSize; i++) { const coin = new THREE.Mesh(coinGeometry, coinMaterial); coin.visible = false; coin.castShadow = true; scene.add(coin); coins.push({ object: coin, active: false }); } }
+        function spawnCoinRow(time) { /* ... (unchanged) ... */ if (time - lastCoinSpawnTime < coinSpawnRate || !isGameRunning) return; const lanesToSpawn = []; const numCoins = Math.random() < 0.6 ? 1 : (Math.random() < 0.8 ? 2 : 3); const availableLanes = [0, 1, 2]; for (let i = 0; i < numCoins; i++) { if (availableLanes.length === 0) break; const randIndex = Math.floor(Math.random() * availableLanes.length); lanesToSpawn.push(availableLanes.splice(randIndex, 1)[0]); } lanesToSpawn.forEach(laneIndex => { const coin = getInactiveCoin(); if (coin) { const spawnX = lanes[laneIndex]; const spawnZ = camera.position.z - coinSpawnDistance - 15; const surfaceY = calculateYOnSphere(spawnX, spawnZ, sphereRadius, sphereCenterY); const spawnY = surfaceY + coinFloatHeight + 0.1; coin.object.position.set(spawnX, spawnY, spawnZ); coin.object.visible = true; coin.active = true; } }); lastCoinSpawnTime = time; } // Removed normal setting here, coins updated fully in updateCoins
+        function getInactiveCoin() { /* ... (unchanged) ... */ for (let i = 0; i < coins.length; i++) { if (!coins[i].active) return coins[i]; } console.warn("Coin pool exhausted!"); return null; }
+        function updateCoins(deltaTime, currentTime) { /* ... (keep upright coin logic) ... */ spawnCoinRow(currentTime); const playerRadius = 1.5 * 2.0; coins.forEach(coin => { if (coin.active) { coin.object.position.z += gameSpeed * deltaTime; const surfaceY = calculateYOnSphere(coin.object.position.x, coin.object.position.z, sphereRadius, sphereCenterY); coin.object.position.y = surfaceY + coinFloatHeight + 0.1; normalVector.set(coin.object.position.x, surfaceY - sphereCenterY, coin.object.position.z).normalize(); tempQuaternion.setFromUnitVectors(alignXVector, normalVector); coin.object.quaternion.copy(tempQuaternion); coin.object.rotateY(coinSpinSpeed * deltaTime * gameSpeed); if (coin.object.position.z > camera.position.z + 10) { coin.object.visible = false; coin.active = false; } if (player && coin.object.visible) { const distanceToPlayer = coin.object.position.distanceTo(player.position); if (distanceToPlayer < playerRadius) { console.log("Coin Collected!"); coin.object.visible = false; coin.active = false; } } } }); }
+
+        // Camera offsets matching reference file
+        const cameraYOffset = 4.0; const cameraZOffset = 6.0; const lookAtYOffset = 1.8;
+
+        function setupSceneAssets() { /* ... (scene setup unchanged - no normal map) ... */
+            console.log("--- setupSceneAssets called ---"); if (moonColorTexture) { const textureRotation = -Math.PI / 2; const textureCenter = new THREE.Vector2(0.5, 0.5); moonColorTexture.center.copy(textureCenter); moonColorTexture.rotation = textureRotation; } sphereMaterial.map = moonColorTexture; sphereMaterial.needsUpdate = true; sphereGround = new THREE.Mesh(sphereGeometry, sphereMaterial); sphereGround.position.y = sphereCenterY; sphereGround.receiveShadow = true; scene.add(sphereGround); console.log("Moon sphere created and added to scene"); if (earthNightTexture) { const earthSize = 150; const earthGeometry = new THREE.PlaneGeometry(earthSize, earthSize); const earthMaterial = new THREE.MeshBasicMaterial({ map: earthNightTexture, transparent: false, depthWrite: false, side: THREE.DoubleSide }); earthMesh = new THREE.Mesh(earthGeometry, earthMaterial); const earthDistance = 300; earthMesh.position.set(earthDistance * 0.4, earthDistance * 0.25, -earthDistance * 0.9); earthMesh.lookAt(0, camera.position.y, 0); earthMesh.renderOrder = -2; scene.add(earthMesh); console.log("Earth (Night) mesh created and added to scene"); } else { console.error("Earth night texture not loaded, cannot create Earth mesh."); }
+        }
+
+        function setupPlayer() {
+            console.log("--- setupPlayer called ---"); if (!playerModelRunning) { console.error("setupPlayer failed: Running model not ready."); return; }
+            player = playerModelRunning;
+            player.scale.set(2.0, 2.0, 2.0); // Scale matching reference file
+            console.log("Player scale set to:", player.scale);
+            const startY = calculateYOnSphere(lanes[currentLane], 0, sphereRadius, sphereCenterY) + 0.1; // Fixed Y offset
+            player.position.set(lanes[currentLane], startY, 0);
+
+            // ***** REVERT PLAYER ORIENTATION SETUP *****
+            // Use fixed rotation like the initial file
+            player.rotation.order = 'YXZ'; // Set rotation order
+            player.rotation.y = Math.PI / 2; // Rotate 90 degrees on Y axis (facing right)
+            // Remove dynamic up/lookAt setup:
+            // normalVector.subVectors(player.position, sphereCenter).normalize();
+            // player.up.copy(normalVector);
+            // player.lookAt(player.position.x, player.position.y + normalVector.y, player.position.z - 1);
+            // player.rotateY(-Math.PI / 2);
+            console.log("Player Y rotation set to fixed:", player.rotation.y);
+            // ******************************************
+
+            player.traverse(node => { if (node.isMesh) {node.castShadow = true; node.receiveShadow = false;} }); scene.add(player); console.log("Player model added to scene:", player);
+
+            // Animation setup (unchanged)
+            mixer = new THREE.AnimationMixer(player); console.log("Mixer created:", mixer); let runClip = null; const possibleRunNames = ['ArmatureAction', 'Run', 'Running', 'Armature|Run', 'mixamo.com']; for (const name of possibleRunNames) { runClip = THREE.AnimationClip.findByName(playerModelRunning.animations, name); if (runClip) { console.log(`Found animation clip named: "${name}"`); break; } } if (!runClip && playerModelRunning.animations.length > 0) { runClip = playerModelRunning.animations[0]; console.warn(`Could not find specific run animation by name. Using first animation: "${runClip.name}"`); } if (!runClip) { console.error(`CRITICAL: Failed to find any animation clip.`); statusElement.textContent = `Error: Missing animation.`; } else { runAction = mixer.clipAction(runClip); console.log(`runAction created using clip "${runClip.name}":`, runAction); }
+
+            // Initial camera pos/lookat using classic offsets
+            camera.position.set( player.position.x, startY + cameraYOffset, cameraZOffset ); camera.lookAt( player.position.x, player.position.y + lookAtYOffset, player.position.z );
+            console.log("Initial Camera Pos:", camera.position); console.log("Initial Player Pos:", player.position); console.log("--- setupPlayer complete ---");
+        }
+
+        function startGame() { /* ... (startGame unchanged) ... */ console.log("--- startGame function called ---"); if (!player || !runAction) { console.warn("startGame: Player or runAction is not ready."); return; } if (isGameRunning) { console.log("startGame aborted: Game already running."); return; } console.log("Starting Game Now!"); statusElement.textContent = "Running!"; console.log("Setting isGameRunning = true"); isGameRunning = true; lastCoinSpawnTime = clock.getElapsedTime() - coinSpawnRate; gameSpeed = baseGameSpeed; const fadeDuration = 0.3; if (runAction) { console.log("Playing runAction:", runAction); if (currentAction) currentAction.fadeOut(fadeDuration); runAction.reset().fadeIn(fadeDuration).play(); currentAction = runAction; } if (coins.length === 0) { console.log("Creating coin pool in startGame"); createCoinPool(); } coins.forEach(coin => { coin.object.visible = false; coin.active = false; }); console.log("--- startGame complete ---"); }
+        function handleKeyDown(event) { /* ... (unchanged input handling) ... */ if (!player || !isGameRunning) return; if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') targetLane = Math.max(0, currentLane - 1); else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') targetLane = Math.min(lanes.length - 1, currentLane + 1); } window.addEventListener('keydown', handleKeyDown);
+
+        function animate() {
+            requestAnimationFrame(animate); const deltaTime = clock.getDelta(); const currentTime = clock.getElapsedTime(); if (isGameRunning) gameSpeed = Math.min(maxGameSpeed, gameSpeed + acceleration * deltaTime); else gameSpeed = 0;
+
+            if (player && sphereGround) {
+                // Player Lane Movement (unchanged)
+                if (isGameRunning) { const targetX = lanes[targetLane]; const currentX = player.position.x; const difference = targetX - currentX; if (Math.abs(difference) > 0.05) { player.position.x += difference * laneSwitchSpeed * deltaTime; } else { player.position.x = targetX; if (currentLane !== targetLane) { currentLane = targetLane; } } }
+
+                // Player Position & Orientation
+                const playerSurfaceY = calculateYOnSphere(player.position.x, player.position.z, sphereRadius, sphereCenterY);
+                player.position.y = playerSurfaceY + 0.1; // Use fixed Y offset
+
+                // ***** REMOVE DYNAMIC ORIENTATION IN ANIMATE *****
+                // The player's rotation is now fixed by setupPlayer
+                // normalVector.subVectors(player.position, sphereCenter).normalize();
+                // player.up.copy(normalVector);
+                // player.lookAt(player.position.x, player.position.y + normalVector.y, player.position.z - 1);
+                // player.rotateY(-Math.PI / 2);
+                 // We might need to update player.rotation.y if the player moves around the sphere significantly
+                 // But for a straight runner, fixed rotation might be closer to the target look.
+                // ************************************************
+
+                // Classic camera movement (unchanged)
+                const targetCameraX = player.position.x; const targetCameraY = player.position.y + cameraYOffset; camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCameraX, 0.05); camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCameraY, 0.05); camera.lookAt( player.position.x, player.position.y + lookAtYOffset, player.position.z );
+            }
+
+            if (isGameRunning) { updateCoins(deltaTime, currentTime); }
+            if (mixer) mixer.update(deltaTime);
+            if(stars && isGameRunning) { stars.rotation.y += 0.0001 * deltaTime * gameSpeed; }
+            renderer.render(scene, camera);
+        }
+        function onWindowResize() { /* ... (unchanged) ... */ camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); } window.addEventListener('resize', onWindowResize);
+
+        console.log("--- Waiting for assets ---");
+        animate();
+        // --- JAVASCRIPT END ---
+    </script>
+</body>
+</html>

@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galactic Database: Planets & Elements</title>
+
+    <!-- Import Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- ADD GLTFLoader -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+    <style>
+        /* --- Base & Global (Adapted from Spaceport Hub) --- */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        html { height: 100%; }
+        body {
+            margin: 0; padding: 20px; /* Keep original padding */
+            min-height: 100%; /* Ensure body covers at least viewport height */
+            overflow-x: hidden; /* Keep original */
+            background: linear-gradient(0deg, #000 0%, #001f3f 100%);
+            background-attachment: fixed; /* Prevent gradient scrolling with content */
+            font-family: 'Courier New', monospace;
+            color: #eee; /* Default text color */
+        }
+
+        /* --- Galactic Database Specific Styles - ADAPTED WITH SPACEPORT THEME --- */
+
+        /* Main Title */
+        h1 {
+            font-size: clamp(2.2rem, 6vw, 3.5rem);
+            color: #00ffff;
+            animation: float 4s ease-in-out infinite;
+            z-index: 10;
+            white-space: nowrap;
+            text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffffaa;
+            margin-top: 0; /* Remove default top margin */
+            margin-bottom: 20px; /* Reduced spacing below title */
+            text-align: center;
+        }
+        @keyframes float { 0% { transform: translateY(0); opacity: 0.9; } 50% { transform: translateY(-8px); opacity: 1; } 100% { transform: translateY(0); opacity: 0.9; } }
+
+        /* --- Button Styles (Copied from Spaceport for btn class) --- */
+         .btn {
+             display: inline-block;
+             padding: 8px 15px;
+             font-family: 'Courier New', monospace;
+             font-size: clamp(12px, 1.8vw, 14px);
+             color: #00ffff;
+             background-color: #001a33;
+             border: 1px solid #00ffff;
+             border-radius: 5px;
+             text-align: center;
+             text-decoration: none;
+             cursor: pointer;
+             transition: all 0.3s ease;
+             font-weight: normal;
+             line-height: 1.2;
+             vertical-align: middle;
+         }
+         .btn:hover:not(:disabled),
+         .btn:focus:not(:disabled) {
+             background-color: #00ffff;
+             color: #001a33;
+             box-shadow: 0 0 8px #00ffffaa;
+             outline: none;
+         }
+         .btn:active:not(:disabled) {
+              background-color: #00cccc;
+              border-color: #00cccc;
+              transform: translateY(1px);
+         }
+         .btn:disabled,
+         .btn.disabled {
+             background-color: #333;
+             color: #777;
+             border-color: #555;
+             cursor: not-allowed;
+             opacity: 0.6;
+             box-shadow: none;
+             transform: none;
+         }
+
+        /* --- Back Button Specific Style --- */
+        .back-button-container {
+            text-align: center; /* Center the button container */
+            margin-bottom: 40px; /* Space between button and grid */
+        }
+        /* Specific adjustments for the back button if needed */
+        .back-button {
+             /* Example: Add more horizontal padding if desired */
+             /* padding-left: 25px; */
+             /* padding-right: 25px; */
+        }
+
+
+        /* Planet Grid */
+        .element-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 25px;
+            padding: 20px;
+        }
+
+        /* Planet Grid Trigger */
+        .element-trigger {
+            background-color: #001a33;
+            border: 1px solid #00ffff;
+            padding: 15px 10px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            min-height: 80px;
+            color: #00ffff;
+        }
+        .element-trigger:hover {
+            background-color: #00ffff;
+            color: #001a33;
+            box-shadow: 0 0 15px #00ffffaa;
+            transform: translateY(-3px) scale(1.03);
+        }
+        .element-trigger .planet-name {
+            font-size: 1.3em; font-weight: bold;
+            color: inherit;
+            display: block; margin-bottom: 5px;
+        }
+
+
+        /* --- Common Popup Overlay Styling --- */
+        .popup-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0s linear 0.4s;
+            z-index: 1000;
+            padding: 15px; box-sizing: border-box;
+        }
+        .popup-overlay.visible {
+            opacity: 1; visibility: visible;
+            transition: opacity 0.4s ease, visibility 0s linear 0s;
+        }
+        #elementPopupOverlay { z-index: 1010; }
+
+        /* --- Common Popup Content Styling --- */
+        .popup-content {
+            background-color: rgba(0, 10, 20, 0.95);
+            color: #00ffff;
+            padding: clamp(15px, 2vw, 25px);
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            box-shadow: 0 0 15px #00ffff66;
+            display: flex; flex-direction: column; gap: 15px;
+            width: 90%; max-height: 90vh; position: relative;
+            transform: scale(0.8);
+            transition: transform 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            overflow: hidden;
+            min-height: 0;
+        }
+        .popup-overlay.visible .popup-content { transform: scale(1); }
+
+        .popup-close {
+            position: absolute; top: 10px; right: 15px; background: none; border: none;
+            font-size: 2em; color: #aaa; cursor: pointer; transition: color 0.2s ease;
+            line-height: 1; z-index: 1015;
+        }
+        .popup-close:hover { color: #00ffff; }
+
+        /* Popup Header */
+        .popup-header {
+            text-align: center; flex-shrink: 0;
+            border-bottom: 1px solid #00ffff55;
+            padding-bottom: 10px;
+        }
+        .popup-header h2 {
+            color: white;
+            margin: 0;
+            font-size: clamp(1.1em, 2.2vw, 1.4em);
+        }
+
+        .popup-main-area {
+            display: flex; gap: 20px; flex-grow: 1;
+            overflow: hidden; min-height: 0;
+        }
+
+        /* --- Common 3D View Styling --- */
+         .popup-3d-view {
+             flex: 1 1 45%;
+             min-width: 250px; min-height: 300px;
+             background-color: #000;
+             border-radius: 8px;
+             position: relative; overflow: hidden;
+             border: 1px solid #00ffff33;
+             display: flex; justify-content: center; align-items: center;
+             color: #aaa;
+         }
+         .popup-3d-canvas-container {
+             width: 100%; height: 100%;
+             position: absolute; top: 0; left: 0;
+         }
+         .popup-3d-canvas-container canvas {
+             display: block; width: 100% !important; height: 100% !important; cursor: grab;
+         }
+         .popup-3d-canvas-container canvas:active { cursor: grabbing; }
+         .loading-indicator {
+             position: absolute; font-style: italic;
+         }
+
+        /* --- Planet Popup Specific Styles --- */
+        #planetPopupContent { max-width: 850px; }
+        .planet-popup-elements-list {
+            flex: 1 1 55%;
+            color: #eee;
+            overflow-y: auto;
+            background: rgba(0, 20, 30, 0.5);
+            border: 1px solid #00ffff55;
+            border-radius: 8px; padding: 15px; min-height: 0;
+            scrollbar-width: thin;
+            scrollbar-color: #00ffffaa rgba(0, 20, 30, 0.3);
+        }
+         .planet-popup-elements-list h3 {
+            color: white;
+            margin: 0 0 12px 0; font-size: clamp(1.1em, 2vw, 1.2em);
+            border-bottom: 1px dotted #00ffff88; padding-bottom: 8px;
+         }
+         .planet-popup-elements-list ul { list-style-type: none; margin: 0; padding: 0; }
+         .planet-popup-elements-list li button {
+            display: block; width: 100%;
+            background: transparent; border: none; border-bottom: 1px dotted #00ffff55;
+            color: #eee;
+            text-align: left; padding: 10px 5px;
+            font-family: inherit; font-size: clamp(0.9em, 1.8vw, 1em);
+            cursor: pointer;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            border-radius: 4px;
+         }
+         .planet-popup-elements-list li:last-child button { border-bottom: none; }
+         .planet-popup-elements-list li button:hover {
+            background-color: #00ffff22;
+            color: #fff;
+         }
+         .planet-popup-elements-list li button:disabled {
+            color: #666; cursor: not-allowed; background: transparent; opacity: 0.7;
+         }
+         .planet-popup-elements-list li button strong {
+             display: inline-block;
+             width: 45px;
+             font-weight: bold;
+             color: #00ffff;
+             margin-right: 10px;
+             text-align: center;
+         }
+         /* Scrollbar */
+         .planet-popup-elements-list::-webkit-scrollbar { width: 8px; }
+         .planet-popup-elements-list::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 4px; }
+         .planet-popup-elements-list::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 4px; border: 1px solid #005050;}
+         .planet-popup-elements-list::-webkit-scrollbar-thumb:hover { background-color: #00ffff; }
+
+
+        /* --- Element Popup Specific Styles --- */
+        #elementPopupContent { max-width: 800px; }
+        .element-popup-info {
+            flex: 1 1 55%;
+            color: #eee;
+            overflow-y: auto; padding: 5px 15px 5px 5px;
+            animation: fadeInInfo 0.6s ease 0.3s forwards;
+            opacity: 0;
+            min-height: 0;
+            scrollbar-width: thin;
+            scrollbar-color: #00ffffaa rgba(0, 20, 30, 0.3);
+        }
+        @keyframes fadeInInfo {
+            from { opacity: 0; transform: translateX(20px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+        .element-popup-info h3 {
+            color: white;
+            margin: 0 0 15px 0; font-size: clamp(1.4em, 2.5vw, 1.6em);
+            text-align: center;
+            border-bottom: 1px dotted #00ffff88; padding-bottom: 8px;
+        }
+        /* Scrollable description box */
+        .element-popup-info .description-text {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+            padding: 10px;
+            border: 1px solid #00ffff55;
+            border-radius: 4px;
+            background: rgba(0, 20, 30, 0.5);
+             scrollbar-width: thin;
+             scrollbar-color: #00ffffaa rgba(0, 20, 30, 0.3);
+        }
+        .element-popup-info .description-text p { margin: 0 0 8px 0; line-height: 1.5; font-size: clamp(0.9em, 1.8vw, 1em); }
+        .element-popup-info .description-text p:last-child { margin-bottom: 0; }
+        .element-popup-info .description-text strong {
+             color: #00ffff;
+             display: block;
+             margin-bottom: 5px;
+             font-weight: bold;
+        }
+
+        /* Info fields */
+        .element-popup-info .info-field {
+            margin-bottom: 8px;
+            line-height: 1.5;
+            font-size: clamp(0.9em, 1.8vw, 1em);
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px dotted #00ffff33;
+            align-items: baseline;
+        }
+         .element-popup-info .info-field:last-of-type { border-bottom: none; }
+        .element-popup-info .info-field strong {
+             color: #aaa;
+             font-weight: normal;
+             padding-right: 15px;
+             flex-shrink: 0;
+             min-width: 130px;
+             display: inline;
+        }
+         .element-popup-info .info-field span {
+             text-align: right;
+             color: #fff;
+             word-break: break-word;
+         }
+
+         /* Scrollbar */
+         .element-popup-info::-webkit-scrollbar { width: 8px; }
+         .element-popup-info::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 4px; }
+         .element-popup-info::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 4px; border: 1px solid #005050; }
+         .element-popup-info::-webkit-scrollbar-thumb:hover { background-color: #00ffff; }
+
+         .element-popup-info .description-text::-webkit-scrollbar { width: 6px; }
+         .element-popup-info .description-text::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 3px; }
+         .element-popup-info .description-text::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 3px; }
+         .element-popup-info .description-text::-webkit-scrollbar-thumb:hover { background-color: #00ffff; }
+
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 750px) {
+            .popup-main-area { flex-direction: column; overflow-y: auto; }
+            .popup-3d-view {
+                height: 250px; min-height: 200px; flex-basis: auto;
+                max-height: 40vh;
+            }
+            .planet-popup-elements-list, .element-popup-info {
+                flex-basis: auto;
+                max-height: 280px;
+            }
+             .element-popup-info .description-text { max-height: 120px; }
+
+             h1 { font-size: clamp(1.8rem, 7vw, 2.8rem); margin-bottom: 15px; } /* Adjusted margin */
+             .back-button-container { margin-bottom: 30px; } /* Adjusted margin */
+             .popup-content { padding: 15px; }
+             .popup-header h2 { font-size: clamp(1em, 2vw, 1.2em); }
+        }
+
+        @media (max-height: 650px) {
+             .popup-content { padding: 15px; gap: 10px; }
+             h1 { font-size: 1.8em; margin-bottom: 10px; } /* Adjusted margin */
+             .back-button-container { margin-bottom: 20px; } /* Adjusted margin */
+             .popup-header h2 { font-size: 1.2em; }
+             .popup-3d-view { height: 180px; min-height: 150px; }
+             .planet-popup-elements-list h3 { font-size: 1.1em; }
+             .planet-popup-elements-list li button { font-size: 0.9em; padding: 8px 5px; }
+             .element-popup-info h3 { font-size: 1.2em; }
+             .element-popup-info .info-field { font-size: 0.85em; }
+             .element-popup-info .description-text { max-height: 100px; font-size: 0.85em; }
+             .element-popup-info .description-text p { font-size: 1em; }
+        }
+
+         /* Further Mobile Refinements */
+         @media (max-width: 480px) {
+              h1 { font-size: clamp(1.5rem, 6vw, 2rem); margin-bottom: 10px; } /* Adjusted margin */
+              .back-button-container { margin-bottom: 25px; } /* Adjusted margin */
+               .btn.back-button { font-size: 11px; padding: 6px 12px; } /* Adjust back button size */
+              .element-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; padding: 10px;}
+              .element-trigger { min-height: 70px; padding: 10px 5px; }
+              .element-trigger .planet-name { font-size: 1.1em; }
+              .popup-content { padding: 10px; }
+              .popup-3d-view { min-height: 180px; max-height: 35vh;}
+              .planet-popup-elements-list, .element-popup-info { max-height: 220px; }
+              .planet-popup-elements-list li button strong { width: 35px; margin-right: 5px; }
+              .element-popup-info .info-field { flex-direction: column; align-items: flex-start; border: none; padding: 2px 0;}
+              .element-popup-info .info-field strong { min-width: auto; margin-bottom: 2px; color: #00ffff; }
+              .element-popup-info .info-field span { text-align: left; }
+         }
+
+    </style>
+</head>
+<body>
+    <h1>Spaceport Hub Database</h1> <!-- Updated Title -->
+
+    <!-- Back Button Container -->
+    <div class="back-button-container">
+        <a href="index.html" class="btn back-button">← Back to Spaceport Hub</a>
+    </div>
+
+    <div class="element-grid" id="planetGrid">
+        <!-- Planet triggers generated by JS -->
+        <p style="text-align:center; grid-column: 1 / -1; color: #aaa;">Loading planetary database...</p>
+    </div>
+
+    <!-- Planet Popup Structure -->
+    <div class="popup-overlay" id="planetPopupOverlay">
+        <div class="popup-content" id="planetPopupContent">
+            <button class="popup-close" id="planetPopupClose">×</button>
+
+            <div class="popup-header">
+                <h2 id="popupPlanetName">Planet Name</h2>
+            </div>
+
+            <div class="popup-main-area">
+                <!-- Planet 3D View -->
+                <div class="popup-3d-view" id="planetPopup3dView">
+                    <div class="popup-3d-canvas-container" id="planetPopup3dCanvasContainer">
+                        <!-- Planet Canvas will go here -->
+                    </div>
+                    <div class="loading-indicator" id="planetLoadingIndicator" style="display: none;">Loading Planet...</div>
+                </div>
+
+                <!-- Elements List Area -->
+                <div class="planet-popup-elements-list">
+                     <h3>Detected Elements / Samples:</h3>
+                     <ul id="popupElementList">
+                         <li>Loading elements...</li>
+                     </ul>
+                </div>
+            </div> <!-- End popup-main-area -->
+        </div> <!-- End planetPopupContent -->
+    </div> <!-- End planetPopupOverlay -->
+
+
+    <!-- Element Details Popup Structure -->
+    <div class="popup-overlay" id="elementPopupOverlay">
+        <div class="popup-content" id="elementPopupContent">
+            <button class="popup-close" id="elementPopupClose">×</button>
+
+            <div class="popup-main-area">
+                <!-- Element 3D View -->
+                <div class="popup-3d-view" id="elementPopup3dView">
+                     <div class="popup-3d-canvas-container" id="elementPopup3dCanvasContainer">
+                         <!-- Element Canvas will go here -->
+                     </div>
+                     <div class="loading-indicator" id="elementLoadingIndicator" style="display: none;">Loading Model...</div>
+                </div>
+
+                <!-- Element Info Area -->
+                <div class="element-popup-info">
+                     <h3 id="infoElementName">Element Name</h3>
+                     <div class="info-field"><strong>Symbol:</strong> <span id="infoElementSymbol"></span></div>
+                     <div class="info-field"><strong>Origin Planet:</strong> <span id="infoElementPlanet"></span></div>
+                     <div class="info-field"><strong>Est. Atomic Mass:</strong> <span id="infoElementMass"></span></div>
+                     <div class="info-field"><strong>Discovery Year:</strong> <span id="infoElementYear"></span></div>
+                     <!-- Description section is separate -->
+                     <div class="description-text">
+                         <p><strong>Description:</strong></p>
+                         <p id="infoElementDescription"></p>
+                     </div>
+                 </div>
+            </div> <!-- End popup-main-area -->
+        </div> <!-- End elementPopupContent -->
+    </div> <!-- End elementPopupOverlay -->
+
+
+    <script>
+        // --- Data ---
+
+        // Element Database (Keyed by ID) - ADDED glbPath for MOON elements
+        const galacticElements = {
+             // === START: UPDATED LUNAR ENTRIES with glbPath ===
+             'lunar_regolith_detailed': {
+                 name: 'Lunar Regolith (Detailed)', symbol: 'LReg',
+                 description: 'Fine, abrasive dust covering the lunar surface. Composition: Primarily silicate minerals (45-50%), iron-rich particles (15-20%), impact glass. Physical: Particle size 20μm-1mm, angular/sharp, electrostatically charged, low thermal conductivity. Hazards: Respiratory damage, skin/eye irritation, equipment abrasion/damage.',
+                 atomicMass: 'Complex Silicate Mix', discoveryYear: 'c. 1966 (Luna 9 Soft Landing)',
+                 glbPath: 'main3dmodel.glb', // <<< ADDED GLB PATH
+                 fallbackModelConfig: { type: 'Plane', color: 0xaaaaaa, wireframe: true } // Keep fallback
+             },
+             'moon_basalt_detailed': {
+                 name: 'Lunar Basalt (Detailed)', symbol: 'LBs',
+                 description: 'Dark volcanic rock forming the lunar maria (lowlands). Composition: Rich in Pyroxene (~50-60%), Plagioclase (~20-30%), Ilmenite (FeTiO₃, 5-15%), Olivine. High Fe & Mg. Physical: Dark grey/black, fine-grained (fast cooling), can be vesicular (gas bubbles), density ~3.1-3.3 g/cm³. Origin: Volcanic eruptions filling impact basins (~3.1-3.9 Byrs ago). Significance: Tracks lunar volcanism, source of Fe/Ti/O₂/³He.',
+                 atomicMass: 'Igneous Silicate Rock', discoveryYear: 'c. 1969 (Apollo 11 Samples)',
+                 glbPath: 'rock_-_basalt.glb', // <<< ADDED GLB PATH
+                 fallbackModelConfig: { type: 'Box', color: 0x505050 }
+             },
+             'anorthosite_detailed': {
+                 name: 'Lunar Anorthosite (Detailed)', symbol: 'Ano',
+                 description: 'Light-colored rock forming the lunar highlands. Composition: Primarily Plagioclase Feldspar (90-95%, Calcium-rich Anorthite), minor Pyroxene/Olivine. High Al content. Physical: Light-colored (white/grey), coarse-grained, density ~2.9 g/cm³, high albedo (reflects light). Origin: Formed from flotation of plagioclase in the ancient Lunar Magma Ocean (~4.3-4.5 Byrs ago). Significance: Key to understanding early lunar crust formation, potential Al/O₂ resource.',
+                 atomicMass: 'Feldspar-Rich Rock', discoveryYear: 'c. 1969 (Apollo Samples Identified)',
+                 glbPath: 'anorthositemodel.glb', // <<< ADDED GLB PATH
+                 fallbackModelConfig: { type: 'Octahedron', color: 0xe0e0e0 }
+             },
+             'helium3_detailed': {
+                 name: 'Helium-3 (Lunar Detailed)', symbol: '³He',
+                 description: 'A light, non-radioactive isotope of Helium (2 protons, 1 neutron). Origin: Implanted in the top few meters of lunar regolith by the solar wind over billions of years. Location: Concentrations low (ppb), higher in Ti-rich ilmenite (mare regions). Trapped in mineral grains. Significance: Potential fuel for aneutronic fusion (D-³He reaction), producing less radioactive waste. Challenges: Requires large-scale mining/heating of regolith (~600-800°C) and complex separation.',
+                 atomicMass: '3.016 u', discoveryYear: 'c. 1970s (Analysis of Apollo Samples)',
+                 glbPath: 'heliam.glb', // <<< ADDED GLB PATH
+                 fallbackModelConfig: { type: 'Sphere', color: 0xADD8E6, wireframe: true }
+             },
+             'water_ice_moon_psr': {
+                 name: 'Water Ice (Lunar PSR)', symbol: 'H₂O(i)',
+                 description: 'Water ice found primarily in Permanently Shadowed Regions (PSRs) near the lunar poles. Nature: Mixed with regolith, likely fine grains, low concentrations (few wt% average, higher locally). Location: PSRs are ultra-cold (< -173°C) "cold traps" preventing sublimation. Origin: Delivered by comets/asteroids, possibly formed via solar wind H + regolith O. Significance: Vital ISRU resource for life support (water, oxygen) and rocket propellant (H₂, O₂). Detection: Evidence from Lunar Prospector, LRO, LCROSS impact.',
+                 atomicMass: '18.015 u', discoveryYear: 'c. 1998 (Lunar Prospector Neutron Data)',
+                 glbPath: 'watersample.glb', // <<< ADDED GLB PATH
+                 fallbackModelConfig: { type: 'Icosahedron', color: 0xffffff, wireframe: false }
+             },
+             // === END: UPDATED LUNAR ENTRIES ===
+
+            // --- OTHER ELEMENTS (Using fallbackModelConfig) ---
+            // Mars Elements
+            'mars_dust': { name: 'Martian Dust (Regolith)', symbol: 'MRg', description: 'Fine, iron-oxide rich dust giving Mars its red color.', atomicMass: 'Fe-Oxide Silicate Mix', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Plane', color: 0xc1440e, wireframe: true } }, // Mars color
+            'hematite_conc': { name: 'Hematite Concretions', symbol: 'HmC', description: 'Small, spherical deposits rich in iron oxide (Fe₂O₃), suggesting past water interaction ("blueberries").', atomicMass: 'Fe₂O₃ Aggregate', discoveryYear: '2004 (Opportunity)', fallbackModelConfig: { type: 'Sphere', color: 0x600000 } },
+            'permafrost_mars': { name: 'Water Ice (Martian Permafrost)', symbol: 'H₂O(pf)', description: 'Subsurface ice mixed with soil, prevalent at higher latitudes.', atomicMass: '18.015 u + Soil', discoveryYear: '2002 (Odyssey)', fallbackModelConfig: { type: 'Box', color: 0xc0c0c0 } },
+            'clay_minerals': { name: 'Phyllosilicates (Clay)', symbol: 'Phy', description: 'Clay minerals formed by alteration of rock by water, indicating past habitable conditions.', atomicMass: 'Hydrated Silicates', discoveryYear: '2005 (Mars Express)', fallbackModelConfig: { type: 'Torus', color: 0x90ee90 } },
+            'sulfates_mars': { name: 'Martian Sulfates', symbol: 'SO₄²', description: 'Minerals like Jarosite and Gypsum formed in acidic water environments.', atomicMass: 'Sulfate Salts', discoveryYear: '2004 (Opportunity)', fallbackModelConfig: { type: 'Tetrahedron', color: 0xffd700 } },
+
+            // Venus Elements
+            'sulfuric_acid': { name: 'Sulfuric Acid Droplets', symbol: 'H₂SO₄', description: 'Major component of Venus\' dense cloud layers, formed photochemically.', atomicMass: '98.07 u', discoveryYear: '1973 (Mariner 10)', fallbackModelConfig: { type: 'Sphere', color: 0xFDFD96, wireframe: true } },
+            'carbon_dioxide_venus': { name: 'Carbon Dioxide (Venusian)', symbol: 'CO₂', description: 'The primary component (96.5%) of Venus\' extremely dense atmosphere.', atomicMass: '44.01 u', discoveryYear: '1761 (Lomonosov)', fallbackModelConfig: { type: 'Octahedron', color: 0x708090, wireframe: true } },
+            'venusian_rock': { name: 'Basaltic Rock (Venusian)', symbol: 'VRk', description: 'Surface rock likely similar to terrestrial basalt, obscured by thick atmosphere.', atomicMass: 'Silicate Rock', discoveryYear: '1975 (Venera 9)', fallbackModelConfig: { type: 'Box', color: 0x8B4513 } },
+
+            // Mercury Elements
+            'mercurian_silicate': { name: 'Mercurian Silicate', symbol: 'HgSi', description: 'Surface silicates, possibly low in iron compared to other terrestrial planets.', atomicMass: 'Silicate Mix', discoveryYear: '1974 (Mariner 10)', fallbackModelConfig: { type: 'TorusKnot', color: 0xA9A9A9 } },
+            'metallic_core_frag': { name: 'Metallic Core Fragment (Sim.)', symbol: 'MCf', description: 'Hypothetical fragment indicating Mercury\'s unusually large iron core.', atomicMass: 'Iron-Nickel Alloy', discoveryYear: 'Hypothetical', fallbackModelConfig: { type: 'Icosahedron', color: 0xB0C4DE } },
+            'sodium_exosphere': { name: 'Exospheric Sodium', symbol: 'Na(exo)', description: 'Trace amounts of sodium detected in Mercury\'s thin exosphere, likely sputtered from surface.', atomicMass: '22.99 u', discoveryYear: '1985 (Ground-based)', fallbackModelConfig: { type: 'Sphere', color: 0xFFFFE0, wireframe: true } },
+
+            // Earth Elements (Examples)
+            'nitrogen_gas': { name: 'Nitrogen Gas', symbol: 'N₂', description: 'Most abundant gas (78%) in Earth\'s atmosphere.', atomicMass: '28.01 u', discoveryYear: '1772 (Rutherford)', fallbackModelConfig: { type: 'Sphere', color: 0xADD8E6, wireframe: true } },
+            'oxygen_gas': { name: 'Oxygen Gas', symbol: 'O₂', description: 'Essential for respiration, makes up 21% of Earth\'s atmosphere.', atomicMass: '32.00 u', discoveryYear: '1774 (Priestley/Scheele)', fallbackModelConfig: { type: 'Sphere', color: 0xFFFFFF, wireframe: true } },
+            'liquid_water': { name: 'Liquid Water', symbol: 'H₂O(l)', description: 'Covers over 70% of Earth\'s surface, crucial for life as we know it.', atomicMass: '18.015 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0x4682B4, wireframe: false, opacity: 0.7 } },
+
+            // Ceres Elements
+            'ceres_carbonate': { name: 'Sodium Carbonate (Ceres)', symbol: 'Na₂CO₃', description: 'Suspected component of the bright spots (faculae) on Ceres, like Occator Crater.', atomicMass: '105.99 u', discoveryYear: '2015 (Dawn)', fallbackModelConfig: { type: 'Octahedron', color: 0xFFFACD } },
+            'water_ice_ceres': { name: 'Water Ice (Ceres)', symbol: 'H₂O(i)', description: 'Significant component of Ceres\' mantle and potentially exposed in some areas.', atomicMass: '18.015 u', discoveryYear: '2014 (Herschel)', fallbackModelConfig: { type: 'Icosahedron', color: 0xE0FFFF } },
+            'ammoniated_clay': { name: 'Ammoniated Phyllosilicates', symbol: 'NH₄-Phy', description: 'Clay minerals containing ammonia, suggesting formation further out in the solar system.', atomicMass: 'Hydrated Silicates + NH₄', discoveryYear: '2015 (Dawn)', fallbackModelConfig: { type: 'Torus', color: 0x9ACD32 } },
+
+            // Io Elements
+            'sulfur_dioxide_io': { name: 'Sulfur Dioxide Frost/Gas', symbol: 'SO₂', description: 'Dominant volatile on Io, produced by volcanism, forms frost and thin atmosphere.', atomicMass: '64.06 u', discoveryYear: '1979 (Voyager 1)', fallbackModelConfig: { type: 'Sphere', color: 0xFFF8DC, wireframe: true } },
+            'sulfur_allotropes': { name: 'Sulfur Allotropes', symbol: 'S₈/Sx', description: 'Elemental sulfur in various forms (S₈ rings, etc.), contributing to Io\'s yellow/red/orange colors.', atomicMass: '32.06 u (per S atom)', discoveryYear: '1979 (Voyager 1)', fallbackModelConfig: { type: 'Tetrahedron', color: 0xFFFF00 } },
+            'silicate_magma_io': { name: 'Silicate Magma (Io)', symbol: 'ISiO', description: 'Extremely hot silicate lava flows, hotter than Earth\'s current volcanism.', atomicMass: 'Silicate Melt', discoveryYear: '1979 (Voyager 1)', fallbackModelConfig: { type: 'Box', color: 0xFF4500 } },
+
+            // Europa Elements
+            'water_ice_europa': { name: 'Water Ice (Europan Surface)', symbol: 'H₂O(i)', description: 'Dominant surface material, forming a thick, cracked shell over a likely subsurface ocean.', atomicMass: '18.015 u', discoveryYear: '1979 (Voyager)', fallbackModelConfig: { type: 'Icosahedron', color: 0xFAF0E6 } },
+            'hydrated_salts': { name: 'Hydrated Salts (e.g., MgSO₄)', symbol: 'Salt·nH₂O', description: 'Salts like magnesium sulfate detected on the surface, possibly originating from the subsurface ocean.', atomicMass: 'Variable (e.g., 120.37 u for MgSO₄)', discoveryYear: '1990s (Galileo)', fallbackModelConfig: { type: 'Octahedron', color: 0xFFE4E1 } },
+            'sulfuric_acid_hydrate': { name: 'Sulfuric Acid Hydrate', symbol: 'H₂SO₄·nH₂O', description: 'Formed by irradiation of sulfur compounds and water ice, contributing to surface coloration.', atomicMass: 'Variable', discoveryYear: '1990s (Galileo)', fallbackModelConfig: { type: 'Torus', color: 0xDAA520 } },
+
+            // Ganymede Elements
+            'water_ice_ganymede': { name: 'Water Ice (Ganymede)', symbol: 'H₂O(i)', description: 'Major component of Ganymede\'s surface, covering older dark terrain and younger grooved terrain.', atomicMass: '18.015 u', discoveryYear: '1979 (Voyager)', fallbackModelConfig: { type: 'Icosahedron', color: 0xF5F5F5 } },
+            'ganymede_silicate': { name: 'Silicate Rock (Ganymede)', symbol: 'GSi', description: 'Darker, older terrain likely composed of silicate materials mixed with ice.', atomicMass: 'Silicate Mix', discoveryYear: '1979 (Voyager)', fallbackModelConfig: { type: 'Box', color: 0x696969 } },
+            'oxygen_exosphere_gany': { name: 'Oxygen Exosphere (Ganymede)', symbol: 'O₂(exo)', description: 'A very thin atmosphere containing oxygen, produced by radiolysis of surface ice.', atomicMass: '32.00 u', discoveryYear: '1996 (Hubble)', fallbackModelConfig: { type: 'Sphere', color: 0xF0FFFF, wireframe: true } },
+
+            // Callisto Elements
+            'water_ice_callisto': { name: 'Water Ice (Callisto)', symbol: 'H₂O(i)', description: 'Primary component of Callisto\'s ancient, heavily cratered surface.', atomicMass: '18.015 u', discoveryYear: '1979 (Voyager)', fallbackModelConfig: { type: 'Icosahedron', color: 0xDCDCDC } },
+            'callisto_dark_mat': { name: 'Dark Material (Callisto)', symbol: 'CDk', description: 'Unknown dark, possibly carbonaceous material mixed with ice, covering much of the surface.', atomicMass: 'Complex Mix', discoveryYear: '1979 (Voyager)', fallbackModelConfig: { type: 'TorusKnot', color: 0x404040 } },
+            'co2_ice_callisto': { name: 'Carbon Dioxide Ice', symbol: 'CO₂(i)', description: 'Detected in trace amounts on Callisto\'s surface.', atomicMass: '44.01 u', discoveryYear: '1990s (Galileo)', fallbackModelConfig: { type: 'Octahedron', color: 0xFFFAFA, wireframe: true } },
+
+            // Titan Elements
+            'nitrogen_titan': { name: 'Nitrogen Gas (Titan)', symbol: 'N₂', description: 'Primary component (95-98%) of Titan\'s thick, hazy atmosphere.', atomicMass: '28.01 u', discoveryYear: '1944 (Kuiper)', fallbackModelConfig: { type: 'Sphere', color: 0xF5DEB3, wireframe: true } },
+            'methane_titan': { name: 'Methane (Titan)', symbol: 'CH₄', description: 'Significant atmospheric component, forms clouds, rain, lakes, and rivers on the surface.', atomicMass: '16.04 u', discoveryYear: '1944 (Kuiper)', fallbackModelConfig: { type: 'Tetrahedron', color: 0xAFEEEE } },
+            'tholins': { name: 'Tholins', symbol: 'Thl', description: 'Complex organic molecules formed by UV radiation on nitrogen and methane, creating atmospheric haze and surface deposits.', atomicMass: 'Complex Organics', discoveryYear: '1979 (Sagan coined term)', fallbackModelConfig: { type: 'Torus', color: 0xD2691E } },
+            'water_ice_titan': { name: 'Water Ice (Titan Bedrock)', symbol: 'H₂O(i)', description: 'Forms the solid bedrock beneath the organic layers and methane lakes.', atomicMass: '18.015 u', discoveryYear: 'Surface inferred', fallbackModelConfig: { type: 'Box', color: 0xB0E0E6 } },
+
+            // Jupiter Elements
+            'hydrogen_gas_jup': { name: 'Hydrogen Gas (Jupiter)', symbol: 'H₂', description: 'Primary component (~90%) of Jupiter\'s atmosphere.', atomicMass: '2.02 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFFEBCD, wireframe: true } },
+            'helium_gas_jup': { name: 'Helium Gas (Jupiter)', symbol: 'He', description: 'Second most abundant component (~10%) of Jupiter\'s atmosphere.', atomicMass: '4.00 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFFC0CB, wireframe: true } },
+            'ammonia_ice_jup': { name: 'Ammonia Ice Crystals', symbol: 'NH₃(i)', description: 'Forms the highest cloud layer visible on Jupiter, appearing white.', atomicMass: '17.03 u', discoveryYear: 'Detected spectroscopically', fallbackModelConfig: { type: 'Octahedron', color: 0xFFFFFF } },
+            'aetherium_gas': { name: 'Aetherium Gas', symbol: 'AeG', description: 'A lightweight, iridescent gas trapped in Jupiter\'s upper atmospheric layers.', atomicMass: '12.01 u (Variable)', discoveryYear: 2405, fallbackModelConfig: { type: 'Sphere', color: 0xFFFACD, wireframe: true } },
+
+            // Saturn Elements
+            'hydrogen_gas_sat': { name: 'Hydrogen Gas (Saturn)', symbol: 'H₂', description: 'Primary component (~96%) of Saturn\'s atmosphere.', atomicMass: '2.02 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFAFAD2, wireframe: true } },
+            'helium_gas_sat': { name: 'Helium Gas (Saturn)', symbol: 'He', description: 'Second most abundant component (~3%) of Saturn\'s atmosphere.', atomicMass: '4.00 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFFB6C1, wireframe: true } },
+            'water_ice_rings': { name: 'Water Ice (Saturn Rings)', symbol: 'H₂O(i)', description: 'The primary component (over 99%) of Saturn\'s spectacular rings, ranging from dust to boulder size.', atomicMass: '18.015 u', discoveryYear: '1610 (Galileo observed rings)', fallbackModelConfig: { type: 'Plane', color: 0xF0F8FF, wireframe: false } },
+
+            // Uranus Elements
+            'hydrogen_gas_ura': { name: 'Hydrogen Gas (Uranus)', symbol: 'H₂', description: 'Primary component of Uranus\' atmosphere.', atomicMass: '2.02 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xE6E6FA, wireframe: true } },
+            'helium_gas_ura': { name: 'Helium Gas (Uranus)', symbol: 'He', description: 'Second most abundant component of Uranus\' atmosphere.', atomicMass: '4.00 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFFF0F5, wireframe: true } },
+            'methane_ice_ura': { name: 'Methane Ice/Gas (Uranus)', symbol: 'CH₄', description: 'Absorbs red light, giving Uranus its distinct blue-green color. Forms ice clouds.', atomicMass: '16.04 u', discoveryYear: '1930s (Spectroscopy)', fallbackModelConfig: { type: 'Tetrahedron', color: 0xAFEEEE } },
+
+            // Neptune Elements
+            'hydrogen_gas_nep': { name: 'Hydrogen Gas (Neptune)', symbol: 'H₂', description: 'Primary component of Neptune\'s atmosphere.', atomicMass: '2.02 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xE0FFFF, wireframe: true } },
+            'helium_gas_nep': { name: 'Helium Gas (Neptune)', symbol: 'He', description: 'Second most abundant component of Neptune\'s atmosphere.', atomicMass: '4.00 u', discoveryYear: 'Ancient', fallbackModelConfig: { type: 'Sphere', color: 0xFFE4E1, wireframe: true } },
+            'methane_ice_nep': { name: 'Methane Ice/Gas (Neptune)', symbol: 'CH₄', description: 'Absorbs red light, contributing to Neptune\'s deep blue color. Forms clouds.', atomicMass: '16.04 u', discoveryYear: '1930s (Spectroscopy)', fallbackModelConfig: { type: 'Tetrahedron', color: 0x7FFFD4 } },
+            'cryonium': { name: 'Cryonium', symbol: 'CrY', description: 'A super-cooled crystalline solid found deep within Neptune\'s icy mantle. Exhibits quantum locking properties.', atomicMass: '312.7 u', discoveryYear: 2342, fallbackModelConfig: { type: 'Icosahedron', color: 0xADD8E6 } },
+
+            // Pluto Elements
+            'nitrogen_ice_pluto': { name: 'Nitrogen Ice (Pluto)', symbol: 'N₂(i)', description: 'Dominant surface ice, especially in Sputnik Planitia. Volatile and can sublimate.', atomicMass: '28.01 u', discoveryYear: '1976 (Spectroscopy)', fallbackModelConfig: { type: 'Icosahedron', color: 0xF8F8FF } },
+            'methane_ice_pluto': { name: 'Methane Ice (Pluto)', symbol: 'CH₄(i)', description: 'Found mixed with nitrogen ice on the surface.', atomicMass: '16.04 u', discoveryYear: '1976 (Spectroscopy)', fallbackModelConfig: { type: 'Tetrahedron', color: 0xF0FFF0 } },
+            'tholins_pluto': { name: 'Tholins (Pluto)', symbol: 'Thl', description: 'Complex organic molecules likely responsible for the reddish-brown areas on Pluto.', atomicMass: 'Complex Organics', discoveryYear: '2015 (New Horizons)', fallbackModelConfig: { type: 'Torus', color: 0x8B0000 } },
+            'water_ice_pluto': { name: 'Water Ice (Pluto Bedrock)', symbol: 'H₂O(i)', description: 'Forms the rigid bedrock mountains observed on Pluto.', atomicMass: '18.015 u', discoveryYear: 'Detected earlier, confirmed 2015', fallbackModelConfig: { type: 'Box', color: 0xADD8E6 } },
+
+            // Generic / Other
+            'voidstone': { name: 'Voidstone', symbol: 'VdS', description: 'An extremely dense, dark material that absorbs almost all light and energy.', atomicMass: 'Unknown (>1000 u)', discoveryYear: 2550, fallbackModelConfig: { type: 'TorusKnot', color: 0x333333 } },
+        };
+
+        // Planet Database (Links to Element IDs) - MOON UPDATED with GLB path
+        const planetSamples = {
+            'earth': { name: "Earth", elements: ['nitrogen_gas', 'oxygen_gas', 'liquid_water'], fallbackModelConfig: { type: 'Sphere', color: 0x4682B4 } },
+            'moon': {
+                name: "Moon",
+                elements: [
+                    'lunar_regolith_detailed',
+                    'moon_basalt_detailed',
+                    'anorthosite_detailed',
+                    'helium3_detailed',
+                    'water_ice_moon_psr'
+                ],
+                glbPath: 'moon.glb', // <<< ADDED MOON GLB PATH
+                fallbackModelConfig: { type: 'Sphere', color: 0xcccccc } // Fallback sphere
+            },
+            'venus': { name: "Venus", elements: ['sulfuric_acid', 'carbon_dioxide_venus', 'venusian_rock'], fallbackModelConfig: { type: 'Sphere', color: 0xe5c27e } },
+            'mars': { name: "Mars", elements: ['mars_dust', 'hematite_conc', 'permafrost_mars', 'clay_minerals', 'sulfates_mars'], fallbackModelConfig: { type: 'Sphere', color: 0xc1440e } }, // Mars color
+            'mercury': { name: "Mercury", elements: ['mercurian_silicate', 'metallic_core_frag', 'sodium_exosphere'], fallbackModelConfig: { type: 'Sphere', color: 0xb0b0b0 } },
+            'ceres': { name: "Ceres", elements: ['ceres_carbonate', 'water_ice_ceres', 'ammoniated_clay'], fallbackModelConfig: { type: 'Sphere', color: 0xbdbdbd } },
+            'io': { name: "Io", elements: ['sulfur_dioxide_io', 'sulfur_allotropes', 'silicate_magma_io'], fallbackModelConfig: { type: 'Sphere', color: 0xffe066 } },
+            'europa': { name: "Europa", elements: ['water_ice_europa', 'hydrated_salts', 'sulfuric_acid_hydrate'], fallbackModelConfig: { type: 'Sphere', color: 0xb3e0ff } },
+            'ganymede': { name: "Ganymede", elements: ['water_ice_ganymede', 'ganymede_silicate', 'oxygen_exosphere_gany'], fallbackModelConfig: { type: 'Sphere', color: 0xd9cba2 } },
+            'callisto': { name: "Callisto", elements: ['water_ice_callisto', 'callisto_dark_mat', 'co2_ice_callisto'], fallbackModelConfig: { type: 'Sphere', color: 0xa89c94 } },
+            'titan': { name: "Titan", elements: ['nitrogen_titan', 'methane_titan', 'tholins', 'water_ice_titan'], fallbackModelConfig: { type: 'Sphere', color: 0xe2b878, wireframe: true } },
+            'jupiter': { name: "Jupiter", elements: ['hydrogen_gas_jup', 'helium_gas_jup', 'ammonia_ice_jup', 'aetherium_gas'], fallbackModelConfig: { type: 'Sphere', color: 0xe8b863 } },
+            'saturn': { name: "Saturn", elements: ['hydrogen_gas_sat', 'helium_gas_sat', 'water_ice_rings'], fallbackModelConfig: { type: 'Sphere', color: 0xe9d7a7, ringColor: 0xd1b575 } },
+            'uranus': { name: "Uranus", elements: ['hydrogen_gas_ura', 'helium_gas_ura', 'methane_ice_ura'], fallbackModelConfig: { type: 'Sphere', color: 0xb0e0e6 } },
+            'neptune': { name: "Neptune", elements: ['hydrogen_gas_nep', 'helium_gas_nep', 'methane_ice_nep', 'cryonium'], fallbackModelConfig: { type: 'Sphere', color: 0x5b5ddf } },
+            'pluto': { name: "Pluto", elements: ['nitrogen_ice_pluto', 'methane_ice_pluto', 'tholins_pluto', 'water_ice_pluto'], fallbackModelConfig: { type: 'Sphere', color: 0xcccccc } },
+        };
+
+        // --- DOM Elements ---
+        const planetGrid = document.getElementById('planetGrid');
+        // Planet Popup
+        const planetPopupOverlay = document.getElementById('planetPopupOverlay');
+        const planetPopupClose = document.getElementById('planetPopupClose');
+        const popupPlanetName = document.getElementById('popupPlanetName');
+        const popupElementList = document.getElementById('popupElementList');
+        const planetPopup3dCanvasContainer = document.getElementById('planetPopup3dCanvasContainer');
+        const planetLoadingIndicator = document.getElementById('planetLoadingIndicator'); // Loading text
+        // Element Popup
+        const elementPopupOverlay = document.getElementById('elementPopupOverlay');
+        const elementPopupClose = document.getElementById('elementPopupClose');
+        const elementPopup3dCanvasContainer = document.getElementById('elementPopup3dCanvasContainer');
+        const elementLoadingIndicator = document.getElementById('elementLoadingIndicator'); // Loading text
+        // Element Info Fields
+        const infoElementName = document.getElementById('infoElementName');
+        const infoElementSymbol = document.getElementById('infoElementSymbol');
+        const infoElementPlanet = document.getElementById('infoElementPlanet');
+        const infoElementDescription = document.getElementById('infoElementDescription');
+        const infoElementMass = document.getElementById('infoElementMass');
+        const infoElementYear = document.getElementById('infoElementYear');
+
+        // --- Three.js Setup (Shared) ---
+        let scene, camera, renderer, currentModel, controls, ringMesh;
+        let isHovering3D = false;
+        let currentPopupType = null; // 'planet' or 'element'
+        let animationFrameId = null;
+        let gltfLoader; // Declare GLTF Loader
+
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            // scene.background = new THREE.Color(0x000000); // Set scene background if needed
+
+            camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000); // Aspect ratio set later
+            camera.position.z = 3.5; // Adjusted default zoom
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha: true for transparent canvas background
+            renderer.setPixelRatio(window.devicePixelRatio);
+            // Output encoding for GLB compatibility
+            renderer.outputEncoding = THREE.sRGBEncoding;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8); // Slightly brighter
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0); // Brighter directional
+            directionalLight.position.set(5, 10, 7.5).normalize();
+            scene.add(directionalLight);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4); // Softer back/fill light
+             directionalLight2.position.set(-5, -5, -5).normalize();
+             scene.add(directionalLight2);
+
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = 1; // Allow closer zoom
+            controls.maxDistance = 20;
+            controls.enableZoom = true;
+
+            // Instantiate GLTFLoader
+            gltfLoader = new THREE.GLTFLoader(); // Instantiate
+
+            // Hover listeners
+            renderer.domElement.addEventListener('mouseenter', () => { isHovering3D = true; });
+            renderer.domElement.addEventListener('mouseleave', () => { isHovering3D = false; });
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function attachRenderer(containerElement) {
+             if (!renderer) initThreeJS();
+             containerElement.innerHTML = ''; // Clear placeholder
+             containerElement.appendChild(renderer.domElement);
+             onWindowResize(); // Set initial size
+        }
+
+        function onWindowResize() {
+            let container;
+            // Check which popup is visible AND has a container ready
+            if (planetPopupOverlay.classList.contains('visible') && planetPopup3dCanvasContainer) {
+                container = planetPopup3dCanvasContainer;
+            } else if (elementPopupOverlay.classList.contains('visible') && elementPopup3dCanvasContainer) {
+                container = elementPopup3dCanvasContainer;
+            } else {
+                return; // No active popup or container not found
+            }
+
+            // Check if container has valid dimensions
+            if (container && container.clientWidth > 0 && container.clientHeight > 0) {
+                 const width = container.clientWidth;
+                 const height = container.clientHeight;
+                 camera.aspect = width / height;
+                 camera.updateProjectionMatrix();
+                 renderer.setSize(width, height);
+            } else {
+                 // console.warn("onWindowResize called but container has no dimensions.");
+            }
+        }
+
+        // Function to create fallback primitive models
+        function createPrimitiveModel(config) {
+             let geometry;
+             const material = new THREE.MeshStandardMaterial({
+                 color: config.color || 0xffffff,
+                 wireframe: config.wireframe || false,
+                 metalness: config.wireframe ? 0.1 : 0.4,
+                 roughness: config.wireframe ? 0.8 : 0.6,
+                 transparent: config.opacity < 1,
+                 opacity: config.opacity !== undefined ? config.opacity : 1
+             });
+
+             switch (config.type) {
+                 case 'Sphere': geometry = new THREE.SphereGeometry(1.2, 32, 32); break;
+                 case 'Box': geometry = new THREE.BoxGeometry(1.5, 1.5, 1.5); break;
+                 case 'Plane': geometry = new THREE.PlaneGeometry(2, 2); material.side = THREE.DoubleSide; break;
+                 case 'Octahedron': geometry = new THREE.OctahedronGeometry(1.3); break;
+                 case 'Icosahedron': geometry = new THREE.IcosahedronGeometry(1.4); break;
+                 case 'Torus': geometry = new THREE.TorusGeometry(1, 0.4, 16, 100); break;
+                 case 'TorusKnot': geometry = new THREE.TorusKnotGeometry(1, 0.3, 100, 16); break;
+                 case 'Tetrahedron': geometry = new THREE.TetrahedronGeometry(1.5); break;
+                 default: geometry = new THREE.SphereGeometry(1.2, 32, 32); break;
+             }
+             return new THREE.Mesh(geometry, material);
+         }
+
+
+        // *** UPDATED update3DModel Function ***
+        function update3DModel(configData, planetKey = null) { // Use general name 'configData'
+            if (!scene || !configData) return;
+
+            // --- Clear previous model ---
+            if (currentModel) {
+                 scene.remove(currentModel);
+                 // Properly dispose of geometry and material if needed to free memory
+                 if (currentModel.geometry) currentModel.geometry.dispose();
+                 if (currentModel.material) {
+                     if (Array.isArray(currentModel.material)) {
+                         currentModel.material.forEach(material => material.dispose());
+                     } else {
+                         currentModel.material.dispose();
+                     }
+                 }
+                 currentModel = null;
+            }
+            if (ringMesh) {
+                scene.remove(ringMesh);
+                if (ringMesh.geometry) ringMesh.geometry.dispose();
+                if (ringMesh.material) ringMesh.material.dispose();
+                ringMesh = null;
+            }
+
+            // Show loading indicator based on popup type
+            const indicator = currentPopupType === 'element' ? elementLoadingIndicator : planetLoadingIndicator;
+            if (indicator) {
+                indicator.textContent = currentPopupType === 'element' ? 'Loading Model...' : 'Loading Planet...';
+                indicator.style.display = 'block';
+            }
+
+            // --- Load GLB or create primitive ---
+            if (configData.glbPath) {
+                if (!gltfLoader) initThreeJS(); // Ensure loader is initialized
+                gltfLoader.load(
+                    configData.glbPath,
+                    // Success callback
+                    (gltf) => {
+                         if (indicator) indicator.style.display = 'none';
+
+                         const model = gltf.scene;
+                         const box = new THREE.Box3().setFromObject(model);
+                         const size = box.getSize(new THREE.Vector3());
+                         const center = box.getCenter(new THREE.Vector3());
+                         const maxDim = Math.max(size.x, size.y, size.z);
+                         const desiredSize = 2.5;
+                         let scale = 1;
+                         if (maxDim > 0) { scale = desiredSize / maxDim; }
+
+                         model.scale.set(scale, scale, scale);
+                         model.position.sub(center.multiplyScalar(scale));
+
+                         scene.add(model);
+                         currentModel = model;
+
+                         resetControlsAndCamera();
+                         onWindowResize();
+                    },
+                    undefined,
+                    (error) => {
+                         if (indicator) indicator.textContent = 'Error loading model';
+                         console.error(`Error loading GLB ${configData.glbPath}:`, error);
+                         if(configData.fallbackModelConfig) {
+                            if (!scene) initThreeJS(); // Ensure scene exists for fallback
+                            currentModel = createPrimitiveModel(configData.fallbackModelConfig);
+                            scene.add(currentModel);
+                            if (indicator) indicator.style.display = 'none';
+                         } else {
+                             if (indicator) indicator.textContent = 'Model unavailable';
+                         }
+                         resetControlsAndCamera();
+                         onWindowResize();
+                    }
+                );
+            } else if (configData.fallbackModelConfig) {
+                if (!scene) initThreeJS(); // Ensure scene exists for fallback
+                if (indicator) indicator.style.display = 'none';
+                currentModel = createPrimitiveModel(configData.fallbackModelConfig);
+                scene.add(currentModel);
+
+                 if (currentPopupType === 'planet' && planetKey === 'saturn' && configData.fallbackModelConfig.ringColor) {
+                     const ringGeometry = new THREE.RingGeometry(1.5, 2.2, 64);
+                     const ringMaterial = new THREE.MeshBasicMaterial({
+                         color: configData.fallbackModelConfig.ringColor,
+                         side: THREE.DoubleSide,
+                         transparent: true,
+                         opacity: 0.7
+                        });
+                     ringMesh = new THREE.Mesh(ringGeometry, ringMaterial);
+                     ringMesh.rotation.x = Math.PI / 2.2;
+                     scene.add(ringMesh);
+                 }
+
+                resetControlsAndCamera();
+                 onWindowResize();
+            } else {
+                if (indicator) indicator.textContent = 'No model available';
+                 console.warn("No glbPath or fallbackModelConfig found for:", configData.name);
+                 resetControlsAndCamera();
+                  onWindowResize();
+            }
+        }
+
+        // Helper to reset view
+        function resetControlsAndCamera() {
+            if (controls) {
+                controls.reset();
+                camera.position.set(0, 0, 3.5);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            } else if(camera) { // Ensure camera exists even if controls aren't initialized yet
+                 camera.position.set(0, 0, 3.5);
+                 camera.lookAt(0, 0, 0);
+            }
+        }
+
+        function startAnimationLoop() {
+            if (!renderer) return; // Don't start if renderer isn't ready
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            function animate() {
+                animationFrameId = requestAnimationFrame(animate);
+                 if (currentPopupType && renderer && scene && camera) {
+                     if (currentModel && controls && !controls.state > 0 && !isHovering3D) {
+                         const rotationSpeed = 0.004;
+                         currentModel.rotation.y += rotationSpeed;
+                         if (ringMesh) { ringMesh.rotation.z += rotationSpeed * 0.5; }
+                     }
+                     if (controls) controls.update();
+                     renderer.render(scene, camera);
+                 }
+             }
+             animate();
+        }
+
+        function stopAnimationLoop() {
+             if (animationFrameId) {
+                 cancelAnimationFrame(animationFrameId);
+                 animationFrameId = null;
+             }
+         }
+
+
+        // --- Populate Grid ---
+        function populatePlanetGrid() {
+            planetGrid.innerHTML = '';
+            const planetKeys = Object.keys(planetSamples);
+            planetKeys.forEach(key => {
+                const planetData = planetSamples[key];
+                const trigger = document.createElement('div');
+                trigger.classList.add('element-trigger');
+                trigger.dataset.planetKey = key;
+                trigger.innerHTML = `<span class="planet-name">${planetData.name}</span>`;
+                trigger.addEventListener('click', () => showPlanetPopup(key));
+                planetGrid.appendChild(trigger);
+            });
+        }
+
+        // --- Planet Popup Logic ---
+        function showPlanetPopup(planetKey) {
+            const planetData = planetSamples[planetKey];
+            if (!planetData) return;
+
+            hideElementPopup();
+
+            popupPlanetName.textContent = planetData.name;
+
+            popupElementList.innerHTML = '';
+            if (planetData.elements && planetData.elements.length > 0) {
+                planetData.elements.forEach(elementId => {
+                    const elementData = galacticElements[elementId];
+                    const li = document.createElement('li');
+                    const button = document.createElement('button');
+                    if (elementData) {
+                        button.innerHTML = `<strong>${elementData.symbol || '?'}</strong> ${elementData.name || elementId}`;
+                        button.dataset.elementId = elementId;
+                        button.addEventListener('click', () => showElementPopup(elementId, planetData.name));
+                    } else {
+                        button.innerHTML = `<strong>?</strong> [${elementId} - Data Missing]`;
+                        button.disabled = true;
+                    }
+                    li.appendChild(button);
+                    popupElementList.appendChild(li);
+                });
+            } else {
+                popupElementList.innerHTML = '<li>No specific elements listed for this location.</li>';
+            }
+            const listContainer = document.querySelector('.planet-popup-elements-list');
+            if (listContainer) listContainer.scrollTop = 0;
+
+            // Set up 3D View
+            currentPopupType = 'planet';
+            if (!renderer) initThreeJS(); // Initialize ThreeJS if not already done
+            attachRenderer(planetPopup3dCanvasContainer);
+            update3DModel(planetData, planetKey);
+            startAnimationLoop();
+
+            planetPopupOverlay.classList.add('visible');
+            setTimeout(onWindowResize, 50); // Ensure resize happens after visible
+        }
+
+        function hidePlanetPopup() {
+            planetPopupOverlay.classList.remove('visible');
+            if (currentPopupType === 'planet') {
+                stopAnimationLoop();
+                currentPopupType = null;
+                 if (currentModel) { scene.remove(currentModel); currentModel = null; }
+                 if (ringMesh) { scene.remove(ringMesh); ringMesh = null; }
+            }
+        }
+
+        // --- Element Popup Logic ---
+        function showElementPopup(elementId, originPlanetName = 'Unknown') {
+             const elementData = galacticElements[elementId];
+             if (!elementData) return;
+
+             hidePlanetPopup();
+
+             infoElementName.textContent = elementData.name || 'N/A';
+             infoElementSymbol.textContent = elementData.symbol || 'N/A';
+             infoElementPlanet.textContent = originPlanetName;
+             infoElementDescription.innerHTML = (elementData.description || 'No description available.').replace(/\n/g, '<br>');
+             infoElementMass.textContent = elementData.atomicMass || 'N/A';
+             infoElementYear.textContent = elementData.discoveryYear || 'N/A';
+
+             const infoArea = document.querySelector('.element-popup-info');
+             if(infoArea) infoArea.scrollTop = 0;
+             const descText = infoArea?.querySelector('.description-text');
+             if (descText) descText.scrollTop = 0;
+
+             if(infoArea) {
+                infoArea.style.opacity = '0';
+                infoArea.style.animation = 'none';
+                void infoArea.offsetWidth;
+                infoArea.style.animation = '';
+             }
+
+             // Set up 3D View
+             currentPopupType = 'element';
+              if (!renderer) initThreeJS(); // Initialize ThreeJS if not already done
+             attachRenderer(elementPopup3dCanvasContainer);
+             update3DModel(elementData);
+             startAnimationLoop();
+
+             elementPopupOverlay.classList.add('visible');
+             setTimeout(onWindowResize, 50); // Ensure resize happens after visible
+        }
+
+        function hideElementPopup() {
+            elementPopupOverlay.classList.remove('visible');
+            if (currentPopupType === 'element') {
+                stopAnimationLoop();
+                currentPopupType = null;
+                 if (currentModel) { scene.remove(currentModel); currentModel = null; }
+            }
+        }
+
+        // --- Event Listeners ---
+        planetPopupClose.addEventListener('click', hidePlanetPopup);
+        planetPopupOverlay.addEventListener('click', (event) => {
+            if (event.target === planetPopupOverlay) hidePlanetPopup();
+        });
+
+        elementPopupClose.addEventListener('click', hideElementPopup);
+        elementPopupOverlay.addEventListener('click', (event) => {
+            if (event.target === elementPopupOverlay) hideElementPopup();
+        });
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            populatePlanetGrid();
+            // Lazy init Three.js only when a popup is first opened
+        });
+
+    </script>
+</body>
+</html>

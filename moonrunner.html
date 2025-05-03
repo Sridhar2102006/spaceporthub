@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astronaut Sphere Runner - Jump!</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; background-color: #000; color: white; }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        #game-canvas { display: block; }
+        #info { position: absolute; top: 10px; left: 10px; background-color: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; z-index: 10; }
+        #status { font-weight: bold; color: yellow; }
+        #item-count { margin-top: 5px; font-weight: bold; color: lightgrey; }
+
+        /* --- POPUP STYLES --- */
+        .popup {
+            display: none; /* Hidden by default */
+            position: absolute; /* Position relative to game-container */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%); /* Center the popup */
+            background-color: rgba(0, 0, 0, 0.8); /* Semi-transparent black */
+            color: #00ff00; /* Bright green text */
+            padding: 30px 50px;
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            font-size: 2em; /* Larger font */
+            font-weight: bold;
+            text-align: center;
+            z-index: 100; /* Make sure it's above everything else */
+            box-shadow: 0 0 15px #00ff00; /* Optional glow effect */
+            opacity: 0; /* Start fully transparent for fade-in */
+            transition: opacity 0.5s ease-in-out; /* Fade effect */
+        }
+
+        .popup.show {
+            display: block; /* Make visible */
+            opacity: 1; /* Fade it in */
+        }
+        /* --- END POPUP STYLES --- */
+
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="game-container"><canvas id="game-canvas"></canvas></div>
+    <div id="info">
+        Use Left/Right Arrow Keys to Move<br>
+        <span id="status">Loading...</span><br>
+        <span id="item-count">Rocks: 0 / 5</span>
+    </div>
+
+    <!-- *** POPUP MESSAGE DIV *** -->
+    <div id="popup-message" class="popup">
+        Samples Collected!
+    </div>
+    <!-- *********************** -->
+
+    <script> // No type="module"
+        // --- JAVASCRIPT START ---
+        const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true }); renderer.setSize(window.innerWidth, window.innerHeight); renderer.setClearColor(0x000000); renderer.shadowMap.enabled = true;
+        const statusElement = document.getElementById('status');
+        const itemCountElement = document.getElementById('item-count');
+
+        // Lighting setup (unchanged)
+        const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.7); scene.add(ambientLight); const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8); directionalLight.position.set(5, 15, 10); directionalLight.castShadow = true; directionalLight.shadow.mapSize.width = 1024; directionalLight.shadow.mapSize.height = 1024; directionalLight.shadow.camera.near = 0.5; directionalLight.shadow.camera.far = 50; directionalLight.shadow.bias = -0.0005; scene.add(directionalLight);
+
+        let player = null; let mixer = null; let clock = new THREE.Clock();
+        let runAction = null;
+        let jumpAction = null;
+        let currentAction = null;
+
+        let lanes = [-4, 0, 4]; let currentLane = 1; let targetLane = 1; const laneSwitchSpeed = 10; let gameSpeed = 5; const baseGameSpeed = 5; const maxGameSpeed = 15; const acceleration = 0.05; let isGameRunning = false;
+        let isSwitchingLane = false;
+
+        let loadedAssets = 0; const totalAssets = 3;
+
+        const textureLoader = new THREE.TextureLoader(); let moonColorTexture = null; let earthNightTexture = null;
+
+        // --- Collectible Item Setup (Rocks - unchanged) ---
+        const collectibleGeometry = new THREE.IcosahedronGeometry(0.45, 0);
+        let collectibleMaterial = null;
+        const collectibles = [];
+        const collectiblePoolSize = 15;
+        const maxActiveCollectibles = 5;
+        let collectedItemCount = 0;
+        const itemTarget = 5;
+        const collectibleSpawnDistance = 50;
+        const collectibleSpawnRate = 3.0;
+        let lastCollectibleSpawnTime = 0;
+        const collectibleFloatHeight = 0.6;
+        // --- End Collectible Item Setup ---
+
+        function onAssetLoaded(assetName = 'Asset') {
+            loadedAssets++; console.log(`${assetName} loaded (${loadedAssets}/${totalAssets})`); statusElement.textContent = `Loading ${loadedAssets}/${totalAssets}...`;
+
+            if (assetName === 'Moon Color Texture' && moonColorTexture) {
+                collectibleMaterial = new THREE.MeshStandardMaterial({ map: moonColorTexture, roughness: 0.95, metalness: 0.05 });
+                console.log("Collectible material created.");
+            }
+
+            if (loadedAssets === totalAssets) {
+                 console.log("--- All assets loaded ---");
+                if (!collectibleMaterial) {
+                   console.warn("Using fallback grey material for collectibles.");
+                   collectibleMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.9, metalness: 0.1 });
+                }
+                setupSceneAssets();
+                setupPlayer();
+                console.log("--- Calling startGame (delayed) ---");
+                setTimeout(startGame, 500);
+            }
+        }
+
+
+        textureLoader.load('assets/moon_color.jpg', (texture) => { moonColorTexture = texture; moonColorTexture.wrapS = THREE.RepeatWrapping; moonColorTexture.wrapT = THREE.RepeatWrapping; moonColorTexture.repeat.set(4, 2); texture.center.set(0.5, 0.5); texture.rotation = -Math.PI / 2; onAssetLoaded('Moon Color Texture'); }, undefined, (err) => { console.error('Error loading moon color texture:', err); statusElement.textContent = 'Error loading moon texture!'; onAssetLoaded('Moon Color Texture Error'); });
+        textureLoader.load('assets/earth_night.jpg', (texture) => { earthNightTexture = texture; onAssetLoaded('Earth Night Texture'); }, undefined, (err) => { console.error('Error loading earth night texture:', err); statusElement.textContent = 'Error loading earth texture!'; onAssetLoaded('Earth Night Texture Error'); });
+
+        const gltfLoader = new THREE.GLTFLoader(); let playerModelData;
+        statusElement.textContent = `Loading 1/${totalAssets}...`;
+        gltfLoader.load(
+            'assets/astronaut_running.glb',
+            (gltf) => {
+                playerModelData = gltf;
+                onAssetLoaded('Astronaut Model');
+            },
+            undefined,
+            (error) => {
+                console.error('Error loading astronaut model:', error);
+                statusElement.textContent = "Error loading astronaut model!";
+                onAssetLoaded('Astronaut Model Error');
+            }
+        );
+
+        const sphereRadius = 50; const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 128, 64); const sphereMaterial = new THREE.MeshStandardMaterial({ map: null, roughness: 0.95, metalness: 0.05 }); let sphereGround = null; let earthMesh = null; const sphereCenterY = -sphereRadius - 0.5; const sphereCenter = new THREE.Vector3(0, sphereCenterY, 0);
+
+        let stars = null; function createStars() { const starGeometry = new THREE.BufferGeometry(); const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, sizeAttenuation: true }); const starVertices = []; const starCount = 5000; const starRadius = 400; for (let i = 0; i < starCount; i++) { const phi = Math.acos(-1 + (2 * Math.random())); const theta = Math.sqrt(starCount * Math.PI) * phi; const r = Math.cbrt(Math.random()) * starRadius; const x = r * Math.sin(phi) * Math.cos(theta); const y = r * Math.sin(phi) * Math.sin(theta); const z = r * Math.cos(phi); starVertices.push(x, y, z); } starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3)); stars = new THREE.Points(starGeometry, starMaterial); stars.renderOrder = -1; scene.add(stars); console.log("Stars created"); } createStars();
+
+        const normalVector = new THREE.Vector3(); const upVector = new THREE.Vector3(0, 1, 0); const tempQuaternion = new THREE.Quaternion(); const alignXVector = new THREE.Vector3(1, 0, 0);
+
+        function calculateYOnSphere(x, z, radius, centerY) { const xzDistSq = x * x + z * z; if (xzDistSq >= radius * radius) { return centerY; } const yRel = Math.sqrt(radius * radius - xzDistSq); return yRel + centerY; }
+        function createCollectiblePool() { if (!collectibleMaterial || !collectibleGeometry) { console.error("Cannot create collectible pool: collectibleMaterial or collectibleGeometry is not ready."); return; } console.log("Creating collectible (rock) pool..."); console.log("Using collectibleGeometry:", collectibleGeometry); console.log("Using collectibleMaterial:", collectibleMaterial); for (let i = 0; i < collectiblePoolSize; i++) { const rock = new THREE.Mesh(collectibleGeometry, collectibleMaterial); rock.rotation.set(Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2); rock.visible = false; rock.castShadow = true; scene.add(rock); collectibles.push({ object: rock, active: false }); } console.log("Collectible pool created:", collectibles.length); }
+        function spawnCollectibleRow(time) { if (time - lastCollectibleSpawnTime < collectibleSpawnRate || !isGameRunning) return; let activeCollectibleCount = 0; for (const item of collectibles) { if (item.active) { activeCollectibleCount++; } } if (activeCollectibleCount >= maxActiveCollectibles) return; const lanesToSpawn = []; const maxItemsToSpawn = maxActiveCollectibles - activeCollectibleCount; const numItemsToSpawnThisTime = Math.min(Math.random() < 0.6 ? 1 : (Math.random() < 0.8 ? 2 : 3), maxItemsToSpawn); const availableLanes = [0, 1, 2]; for (let i = 0; i < numItemsToSpawnThisTime; i++) { if (availableLanes.length === 0) break; const randIndex = Math.floor(Math.random() * availableLanes.length); lanesToSpawn.push(availableLanes.splice(randIndex, 1)[0]); } lanesToSpawn.forEach(laneIndex => { const item = getInactiveCollectible(); if (item) { const spawnX = lanes[laneIndex]; const spawnZ = camera.position.z - collectibleSpawnDistance - 15; const surfaceY = calculateYOnSphere(spawnX, spawnZ, sphereRadius, sphereCenterY); const spawnY = surfaceY + collectibleFloatHeight; item.object.position.set(spawnX, spawnY, spawnZ); item.object.visible = true; item.active = true; } }); lastCollectibleSpawnTime = time; }
+        function getInactiveCollectible() { for (let i = 0; i < collectibles.length; i++) { if (!collectibles[i].active) return collectibles[i]; } console.warn("Collectible (rock) pool exhausted!"); return null; }
+
+        // *** MODIFIED updateCollectibles function ***
+        function updateCollectibles(deltaTime, currentTime) {
+            spawnCollectibleRow(currentTime);
+
+            const playerRadius = 1.5 * 1.5;
+
+            for (let i = 0; i < collectibles.length; i++) {
+                const item = collectibles[i];
+                if (item.active) {
+                    item.object.position.z += gameSpeed * deltaTime;
+                    const surfaceY = calculateYOnSphere(item.object.position.x, item.object.position.z, sphereRadius, sphereCenterY);
+                    item.object.position.y = surfaceY + collectibleFloatHeight;
+
+                    if (item.object.position.z > camera.position.z + 10) {
+                        item.object.visible = false;
+                        item.active = false;
+                    }
+
+                    if (player && item.object.visible) {
+                        const distanceToPlayer = item.object.position.distanceTo(player.position);
+                        if (distanceToPlayer < playerRadius) {
+                            console.log("Rock Collected!");
+                            item.object.visible = false;
+                            item.active = false;
+                            collectedItemCount++;
+                            console.log(`Rocks collected: ${collectedItemCount} / ${itemTarget}`);
+                            itemCountElement.textContent = `Rocks: ${collectedItemCount} / ${itemTarget}`;
+
+                            // --- WIN CONDITION CHECK ---
+                            if (collectedItemCount >= itemTarget) {
+                                console.log(`Reached ${itemTarget} rocks! Showing popup...`);
+                                statusElement.textContent = `Goal Reached!`; // Update status
+                                isGameRunning = false; // Stop game updates
+
+                                // Show the Popup
+                                const popupElement = document.getElementById('popup-message');
+                                if (popupElement) {
+                                    popupElement.classList.add('show'); // Add 'show' class to make it visible
+                                }
+
+                                // Delay Redirect LONGER to show popup
+                                setTimeout(() => {
+                                    console.log("Redirecting to index.html after popup.");
+                                    window.location.href = 'analysis_report.html';
+                                }, 2500); // 2.5 second delay
+
+                                return; // Exit updateCollectibles early
+                            }
+                            // --- END WIN CONDITION CHECK ---
+                        }
+                    }
+                }
+            }
+        }
+
+
+        const cameraYOffset = 4.0; const cameraZOffset = 6.0; const lookAtYOffset = 1.8;
+
+        function setupSceneAssets() { console.log("--- setupSceneAssets called ---"); if (moonColorTexture) { const textureRotation = -Math.PI / 2; const textureCenter = new THREE.Vector2(0.5, 0.5); moonColorTexture.center.copy(textureCenter); moonColorTexture.rotation = textureRotation; } sphereMaterial.map = moonColorTexture; sphereMaterial.needsUpdate = true; sphereGround = new THREE.Mesh(sphereGeometry, sphereMaterial); sphereGround.position.y = sphereCenterY; sphereGround.receiveShadow = true; scene.add(sphereGround); console.log("Moon sphere created and added to scene"); if (earthNightTexture) { const earthSize = 150; const earthGeometry = new THREE.PlaneGeometry(earthSize, earthSize); const earthMaterial = new THREE.MeshBasicMaterial({ map: earthNightTexture, transparent: false, depthWrite: false, side: THREE.DoubleSide }); earthMesh = new THREE.Mesh(earthGeometry, earthMaterial); const earthDistance = 300; earthMesh.position.set(earthDistance * 0.4, earthDistance * 0.25, -earthDistance * 0.9); earthMesh.lookAt(0, camera.position.y, 0); earthMesh.renderOrder = -2; scene.add(earthMesh); console.log("Earth (Night) mesh created and added to scene"); } else { console.error("Earth night texture not loaded, cannot create Earth mesh."); } }
+
+        function setupPlayer() {
+             console.log("--- setupPlayer called ---");
+             if (!playerModelData) { console.error("setupPlayer failed: Astronaut model data not ready."); return; }
+
+            player = playerModelData.scene;
+            player.scale.set(2.0, 2.0, 2.0);
+            console.log("Player scale set to:", player.scale);
+            const startY = calculateYOnSphere(lanes[currentLane], 0, sphereRadius, sphereCenterY) + 0.1;
+            player.position.set(lanes[currentLane], startY, 0);
+
+            player.rotation.order = 'YXZ';
+            player.rotation.y = Math.PI / 2;
+            console.log("Player Y rotation set to fixed:", player.rotation.y);
+
+            player.traverse(node => { if (node.isMesh) {node.castShadow = true; node.receiveShadow = false;} }); scene.add(player); console.log("Player model added to scene:", player);
+
+            mixer = new THREE.AnimationMixer(player);
+            console.log("Mixer created:", mixer);
+            const animations = playerModelData.animations;
+            console.log("Available animations:", animations.map(clip => clip.name));
+
+            let runClip = null;
+            const possibleRunNames = ['Run', 'Running', 'Armature|Run', 'mixamo.com'];
+            for (const name of possibleRunNames) {
+                runClip = THREE.AnimationClip.findByName(animations, name);
+                if (runClip) { console.log(`Found run animation clip: "${name}"`); break; }
+            }
+             if (!runClip && animations.length > 0 && !jumpAction) {
+                runClip = animations.find(clip => !clip.name.toLowerCase().includes('jump'));
+                if(!runClip) runClip = animations[0];
+                console.warn(`Could not find specific run animation. Using: "${runClip.name}"`);
+            }
+
+            let jumpClip = null;
+            const possibleJumpNames = ['Jump', 'Jumping', 'Armature|Jump', 'mixamo.com'];
+            for (const name of possibleJumpNames) {
+                 jumpClip = THREE.AnimationClip.findByName(animations, name);
+                 if (jumpClip) { console.log(`Found jump animation clip: "${name}"`); break; }
+            }
+
+            if (!runClip) {
+                 console.error(`CRITICAL: Failed to find RUN animation clip.`);
+                 statusElement.textContent = `Error: Missing RUN animation.`;
+            } else {
+                runAction = mixer.clipAction(runClip);
+                console.log(`runAction created using clip "${runClip.name}":`, runAction);
+                runAction.setEffectiveWeight(1);
+                currentAction = runAction;
+            }
+
+            if (!jumpClip) {
+                console.warn(`WARNING: Failed to find JUMP animation clip. Lane change jump will not be animated.`);
+            } else {
+                jumpAction = mixer.clipAction(jumpClip);
+                console.log(`jumpAction created using clip "${jumpClip.name}":`, jumpAction);
+                jumpAction.setEffectiveWeight(0);
+                jumpAction.setLoop(THREE.LoopOnce);
+                jumpAction.clampWhenFinished = true;
+            }
+
+            camera.position.set( player.position.x, startY + cameraYOffset, cameraZOffset ); camera.lookAt( player.position.x, player.position.y + lookAtYOffset, player.position.z );
+            console.log("Initial Camera Pos:", camera.position); console.log("Initial Player Pos:", player.position); console.log("--- setupPlayer complete ---");
+        }
+
+        function startGame() {
+            console.log("--- startGame function called ---");
+            if (!player || !runAction) { console.warn("startGame: Player or runAction is not ready."); return; }
+            if (isGameRunning) { console.log("startGame aborted: Game already running."); return; }
+
+            if (collectibles.length === 0) {
+                 console.log("Creating collectible pool in startGame");
+                 createCollectiblePool();
+                 if(collectibles.length === 0) {
+                    console.error("Failed to create collectibles. Aborting start.");
+                    statusElement.textContent = "Error: Failed to create rocks!";
+                    return;
+                 }
+            }
+
+            // *** Hide popup on game start ***
+            const popupElement = document.getElementById('popup-message');
+             if (popupElement) {
+                 popupElement.classList.remove('show');
+             }
+            // *******************************
+
+            console.log("Starting Game Now!");
+            statusElement.textContent = "Running!";
+            collectedItemCount = 0;
+            itemCountElement.textContent = `Rocks: ${collectedItemCount} / ${itemTarget}`;
+            console.log("Setting isGameRunning = true");
+            isGameRunning = true;
+            isSwitchingLane = false;
+            lastCollectibleSpawnTime = clock.getElapsedTime() - collectibleSpawnRate;
+            gameSpeed = baseGameSpeed;
+
+            mixer.stopAllAction();
+            if (runAction) {
+                runAction.reset().play();
+                runAction.setEffectiveWeight(1);
+            }
+            if (jumpAction) {
+                jumpAction.reset();
+                jumpAction.setEffectiveWeight(0);
+            }
+            currentAction = runAction;
+            console.log("Initial animation set to runAction.");
+
+            collectibles.forEach(item => {
+                item.object.visible = false;
+                item.active = false;
+            });
+            console.log("--- startGame complete ---");
+        }
+
+        function switchToAction(actionToPlay, duration = 0.3) {
+            if (!actionToPlay || actionToPlay === currentAction) return;
+            const previousAction = currentAction;
+            currentAction = actionToPlay;
+            if (previousAction) previousAction.fadeOut(duration);
+            actionToPlay.reset().setEffectiveTimeScale(1).setEffectiveWeight(1).fadeIn(duration).play();
+            if (actionToPlay === runAction) { actionToPlay.setLoop(THREE.LoopRepeat); actionToPlay.clampWhenFinished = false; }
+            else if (actionToPlay === jumpAction) { actionToPlay.setLoop(THREE.LoopOnce); actionToPlay.clampWhenFinished = true; mixer.addEventListener('finished', handleJumpFinish); }
+        }
+
+        function handleJumpFinish(event) {
+             if (event.action === jumpAction) {
+                 mixer.removeEventListener('finished', handleJumpFinish);
+                 switchToAction(runAction, 0.2);
+             }
+        }
+
+        function handleKeyDown(event) {
+            if (!player || !isGameRunning) return;
+            let requestedLane = targetLane;
+            if (event.key === 'ArrowLeft' || event.key === 'a' || event.key === 'A') requestedLane = Math.max(0, currentLane - 1);
+            else if (event.key === 'ArrowRight' || event.key === 'd' || event.key === 'D') requestedLane = Math.min(lanes.length - 1, currentLane + 1);
+
+            if (requestedLane !== currentLane && !isSwitchingLane) {
+                isSwitchingLane = true;
+                targetLane = requestedLane;
+                if (jumpAction && currentAction !== jumpAction) {
+                     console.log("Lane change initiated, triggering jump animation.");
+                     mixer.removeEventListener('finished', handleJumpFinish);
+                     switchToAction(jumpAction, 0.15);
+                } else if (!jumpAction){ console.log("Lane change initiated, but no jump animation found."); }
+            } else if (requestedLane !== currentLane && isSwitchingLane) { targetLane = requestedLane; }
+        }
+        window.addEventListener('keydown', handleKeyDown);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const deltaTime = clock.getDelta();
+            const currentTime = clock.getElapsedTime();
+
+            // --- Stop rendering if game ended and popup is shown (optional optimization) ---
+            // if (!isGameRunning && collectedItemCount >= itemTarget) {
+            //      // Only render once more after showing popup? Or keep rendering until redirect?
+            //      // Keep rendering for simplicity until redirect.
+            //      // return;
+            // }
+            // --- ---
+
+            if (isGameRunning) {
+                 gameSpeed = Math.min(maxGameSpeed, gameSpeed + acceleration * deltaTime);
+            } else if(collectedItemCount < itemTarget) { // Only stop speed if game isn't won yet
+                 gameSpeed = 0;
+            } // Let speed continue if game won, so background keeps moving slowly
+
+
+            if (player && sphereGround) {
+                if (isGameRunning || isSwitchingLane) { // Allow lane switching even if game just ended
+                    const targetX = lanes[targetLane];
+                    const currentX = player.position.x;
+                    const difference = targetX - currentX;
+                    if (Math.abs(difference) > 0.05) {
+                        player.position.x += difference * laneSwitchSpeed * deltaTime;
+                        if (!isSwitchingLane && isGameRunning) isSwitchingLane = true; // Set flag if movement starts
+                    } else {
+                        player.position.x = targetX;
+                        if (currentLane !== targetLane) currentLane = targetLane;
+                        if (isSwitchingLane) {
+                            isSwitchingLane = false;
+                             if (currentAction !== runAction && (!jumpAction || !jumpAction.isRunning())) {
+                                 switchToAction(runAction, 0.2);
+                             }
+                        }
+                    }
+                }
+                const playerSurfaceY = calculateYOnSphere(player.position.x, player.position.z, sphereRadius, sphereCenterY);
+                player.position.y = playerSurfaceY + 0.1;
+                const targetCameraX = player.position.x; const targetCameraY = player.position.y + cameraYOffset; camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCameraX, 0.05); camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCameraY, 0.05); camera.lookAt( player.position.x, player.position.y + lookAtYOffset, player.position.z );
+            }
+
+            // Update collectibles ONLY if game is running
+            if (isGameRunning) {
+                updateCollectibles(deltaTime, currentTime);
+            }
+
+            if (mixer) mixer.update(deltaTime);
+
+            // Keep stars moving even after game won, until redirect
+            if(stars) { stars.rotation.y += 0.0001 * deltaTime * gameSpeed; }
+
+            renderer.render(scene, camera);
+        }
+        function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); } window.addEventListener('resize', onWindowResize);
+
+        console.log("--- Waiting for assets ---");
+        animate();
+        // --- JAVASCRIPT END ---
+    </script>
+</body>
+</html>

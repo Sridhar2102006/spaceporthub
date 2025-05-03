@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rocket Cockpit - Fullscreen View</title>
+    <style>
+        /* Base Styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%; /* Ensure full width */
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            background-color: #000;
+        }
+
+        /* Cockpit Container */
+        #cockpit {
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            background: radial-gradient(circle, #001f3f 0%, #000 100%);
+            overflow: hidden;
+            perspective: 1200px;
+        }
+
+        /* Space Travel Background - Stays covering large area */
+        .space-travel {
+            position: absolute;
+            top: -100%; left: -100%; width: 300%; height: 300%;
+            background: radial-gradient(white 0.5px, transparent 0.5px), radial-gradient(white 0.5px, transparent 0.5px), radial-gradient(circle at 30% 30%, rgba(100, 100, 255, 0.1) 0%, transparent 30%), radial-gradient(circle at 70% 70%, rgba(255, 100, 100, 0.1) 0%, transparent 30%);
+            background-size: 100px 100px, 150px 150px, 100% 100%, 100% 100%;
+            background-repeat: repeat; animation: spaceScroll 150s linear infinite; z-index: -2;
+        }
+        @keyframes spaceScroll { 0% { transform: translate(0, 0); } 100% { transform: translate(50%, 50%); } }
+
+        /* Passing Stars Animation - Container fills screen */
+        .stars { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; transform-style: preserve-3d; }
+        .star { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; opacity: 0; /* JS positions, Start hidden */ }
+        @keyframes starTravel { 0% { transform: translateZ(-50px); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateZ(1200px); opacity: 0; } }
+
+        /* Cockpit Window (Stays as is for pre-launch) */
+        .window {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            height: 75vh;
+            font-size: clamp(16px, 2vw, 24px);
+            color: #00ffff;
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #00ffff;
+            animation: glow 2s infinite alternate;
+            background: rgba(0, 20, 40, 0.75);
+            backdrop-filter: blur(4px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            overflow-x: hidden;
+            z-index: 8;
+        }
+        @keyframes glow { 0% { box-shadow: 0 0 10px #00ffff; border-color: #00aaaa; } 100% { box-shadow: 0 0 30px #00ffff; border-color: #00ffff; } }
+
+
+        /* Control Panel (Stays as is) */
+        .panel {
+            position: absolute;
+            bottom: 2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: clamp(10px, 1.5vw, 20px);
+            padding: clamp(10px, 1.5vh, 15px);
+            background: rgba(0, 10, 20, 0.85);
+            border-radius: 8px;
+            border: 1px solid #00ffff;
+            z-index: 10;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: max-content;
+            max-width: 90vw;
+        }
+        .panel button, .panel input {
+            padding: clamp(8px, 1.2vh, 12px) clamp(12px, 1.5vw, 18px);
+            background: #001a33; color: #00ffff; border: 1px solid #00ffff;
+            border-radius: 5px; cursor: pointer; font-family: 'Courier New', monospace;
+            font-size: clamp(12px, 1.8vh, 16px);
+            transition: all 0.2s;
+        }
+        .panel button:hover { background: #00ffff; color: #001a33; box-shadow: 0 0 10px #00ffff; }
+        .panel button:active { transform: scale(0.95); }
+        .panel button:disabled {
+             background: #333; color: #777; border-color: #555; cursor: not-allowed; transform: scale(1); opacity: 0.6;
+             box-shadow: none;
+         }
+        .throttle {
+            width: clamp(100px, 15vw, 150px);
+            cursor: pointer; accent-color: #00ffff;
+        }
+
+
+        /* HUD Display (Stays as is) */
+        .hud {
+            position: absolute;
+            top: 2vh;
+            right: 2vw;
+            padding: clamp(8px, 1.5vh, 12px);
+            background: rgba(0, 20, 40, 0.75);
+            border: 1px solid #00ffff;
+            border-radius: 5px;
+            color: #00ffff;
+            font-size: clamp(14px, 2vh, 18px);
+            z-index: 10;
+            min-width: clamp(150px, 20vw, 220px);
+        }
+        .hud p { margin: clamp(5px, 1vh, 8px) 0; transition: color 0.5s; }
+        .hud p.warning { color: #ffcc00; font-weight: bold; }
+
+
+        /* Space Objects (Stays as is) */
+        #spaceObjects { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
+        .space-object { position: absolute; border-radius: 50%; filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5)); will-change: transform; opacity: 0; }
+        @keyframes flyPast { 0% { transform: translateX(-20vw) translateY(var(--start-y)) scale(0.1); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateX(120vw) translateY(var(--end-y)) scale(1.5); opacity: 0; } }
+
+
+        /* Message Log (Stays as is) */
+        #messageLog { position: absolute; bottom: calc(2vh + 75px); left: 2vw; padding: clamp(8px, 1.5vh, 12px); background: rgba(0, 20, 40, 0.75); border: 1px solid #00ffff; border-radius: 5px; color: #00ffff; font-size: clamp(10px, 1.5vh, 14px); max-height: 15vh; overflow-y: auto; width: clamp(200px, 25vw, 350px); z-index: 10; }
+        #messageLog h3 { margin-top: 0; margin-bottom: 5px; font-size: 1.1em; }
+        #messageLog p { margin: 3px 0; line-height: 1.3; }
+
+
+        /* Quiz Container (Stays as is) */
+        #quizContainer { padding: clamp(10px, 2vh, 20px); background: rgba(0, 10, 20, 0.6); border-radius: 5px; width: 85%; max-width: 700px; text-align: center; }
+        #currentQuestion { font-size: clamp(1em, 2.2vh, 1.3em); margin-bottom: 15px; }
+        #quizOptions { margin-top: 15px; display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 1.2vh, 12px); }
+        #quizOptions button { padding: clamp(8px, 1.5vh, 12px) clamp(15px, 2vw, 25px); background: #001a33; color: #00ffff; border: 1px solid #00ffff; border-radius: 5px; cursor: pointer; font-family: 'Courier New', monospace; font-size: clamp(14px, 2vh, 18px); transition: all 0.2s; width: 90%; max-width: 450px; }
+        #quizOptions button:hover:not(:disabled) { background: #00ffff; color: #001a33; box-shadow: 0 0 10px #00ffff; }
+        #quizOptions button:disabled { opacity: 0.6; cursor: not-allowed; }
+        #quizOptions button.correct { background: #00cc00 !important; color: white !important; border-color: #55ff55 !important; }
+        #quizOptions button.incorrect { background: #cc0000 !important; color: white !important; border-color: #ff5555 !important; }
+        #quizResult { margin-top: 15px; font-weight: bold; min-height: 1.2em; font-size: clamp(1em, 2.2vh, 1.2em); }
+
+
+        /* Launch Button (Stays as is) */
+        #launchButton { padding: clamp(10px, 1.8vh, 15px) clamp(20px, 3vw, 30px); background: #cc0000; color: white; border: 1px solid #ff5555; border-radius: 5px; cursor: pointer; font-family: 'Courier New', monospace; font-size: clamp(16px, 2.5vh, 20px); transition: all 0.3s; margin-top: 20px; opacity: 0.5; cursor: not-allowed; }
+        #launchButton.enabled { background: #00cc00; color: white; border: 1px solid #55ff55; opacity: 1; cursor: pointer; }
+        #launchButton.enabled:hover { background: #33ff33; box-shadow: 0 0 15px #33ff33; }
+
+        /* --- MODIFIED: Countdown Overlay --- */
+        #countdown {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            color: #fff;
+            /* Use Flexbox for side-by-side layout */
+            display: flex;
+            flex-direction: row; /* Arrange children side-by-side */
+            justify-content: center; /* Center items horizontally */
+            align-items: center; /* Center items vertically */
+            gap: clamp(30px, 5vw, 80px); /* Space between countdown and progress */
+            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.5s;
+            /* Optional: add a semi-transparent background if needed */
+            /* background: rgba(0,0,0,0.7); */
+        }
+        #countdown.visible { opacity: 1; pointer-events: auto; }
+
+        /* Container for the countdown number and text */
+        #countdownLeft {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        #countdownTimer {
+             font-size: clamp(50px, 15vw, 200px);
+             text-shadow: 0 0 7px #00ffff, 0 0 10px #00ffff, 0 0 21px #00ffff, 0 0 42px #00aaff, 0 0 82px #00aaff, 0 0 92px #00aaff, 0 0 102px #00aaff, 0 0 151px #00aaff;
+             line-height: 1;
+             margin-bottom: 10px;
+        }
+        #countdownEnRouteText {
+             font-size: clamp(20px, 5vw, 40px);
+             color: #aaa;
+             text-transform: uppercase;
+             letter-spacing: 2px;
+             transition: opacity 0.5s;
+             opacity: 1;
+        }
+        #countdownEnRouteText.hidden {
+             opacity: 0;
+         }
+
+        /* Container for the progress bar section (was #countdownRight, now uses existing section directly) */
+        /* --- ADDED BACK / MODIFIED: Travel Progress Styles (for countdown phase) --- */
+        #travelProgressSection {
+            /* display: flex; (set by JS) */
+            flex-direction: column;
+            align-items: center;
+            width: clamp(250px, 35vw, 500px); /* Adjust width for side-by-side view */
+            padding: 15px;
+            background: rgba(0, 5, 10, 0.5);
+            border: 1px dashed #00ffff55;
+            border-radius: 8px;
+            /* margin-top: 10px; REMOVED margin-top */
+            display: none; /* Initially hidden, shown by JS */
+        }
+        #travelProgressSection h3 {
+            margin: 0 0 15px 0;
+            font-size: clamp(1.1em, 2.5vh, 1.5em); /* Slightly smaller */
+            color: #fff;
+            text-shadow: 0 0 5px #00ffff;
+        }
+        .progress-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            width: 100%;
+            justify-content: center;
+        }
+        #travelProgressBar {
+            appearance: none;
+            width: 70%;
+            height: clamp(15px, 2.5vh, 20px);
+            border: 1px solid #00ffff;
+            border-radius: 5px;
+            overflow: hidden;
+            background-color: #001020;
+        }
+        #travelProgressBar::-webkit-progress-bar { background-color: #001020; border-radius: 5px; }
+        #travelProgressBar::-webkit-progress-value { background: linear-gradient(90deg, #007777, #00ffff); border-radius: 3px; transition: width 0.1s linear; } /* Faster transition */
+        #travelProgressBar::-moz-progress-bar { background: linear-gradient(90deg, #007777, #00ffff); border-radius: 3px; transition: width 0.1s linear; } /* Faster transition */
+        #travelProgressPercent {
+            font-weight: bold;
+            color: #fff;
+            min-width: 45px;
+            text-align: right;
+            font-size: clamp(0.9em, 2vh, 1.1em); /* Match ETA font size */
+        }
+        #etaDisplay {
+            font-size: clamp(0.9em, 1.8vh, 1.1em);
+            color: #aaa;
+            min-height: 1.2em;
+            transition: opacity 0.5s;
+            opacity: 1;
+        }
+         #etaDisplay.hidden {
+             opacity: 0;
+             height: 0;
+             margin: 0;
+             overflow: hidden;
+         }
+        /* --- END ADDED BACK / MODIFIED --- */
+
+
+        /* Initial Window Message Styling */
+        #noDestinationMessage { font-size: clamp(1.1em, 2.5vh, 1.4em); line-height: 1.5; display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; }
+
+        /* Camera Flash Animation - Stays fullscreen */
+        #cameraFlash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: white; opacity: 0; z-index: 900; pointer-events: none; display: none; }
+        #cameraFlash.flashing { display: block; animation: flashFadeOut 0.5s ease-out forwards; }
+        @keyframes flashFadeOut { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+
+    </style>
+</head>
+<body>
+    <div id="cockpit">
+        <div class="space-travel"></div>
+        <div class="stars" id="stars"></div>
+        <div id="spaceObjects"></div>
+
+        <!-- Window (Quiz/Initial Message) -->
+        <div class="window" id="cockpitWindow">
+            <div id="noDestinationMessage">
+                🌌 NO DESTINATION SELECTED<br>RETURN TO SPACEPORT TO CHOOSE A TARGET
+            </div>
+            <div id="quizContainer" style="display: none;">
+                 <h3>PRE-FLIGHT CHECK REQUIRED</h3>
+                <p id="currentQuestion"></p>
+                <div id="quizOptions"></div>
+                <p id="quizResult"></p>
+            </div>
+            <button id="launchButton" onclick="startLaunchSequence()">🚀 AWAITING LAUNCH CLEARANCE</button>
+        </div>
+
+        <!-- Panel (Controls - Disabled) -->
+        <div class="panel">
+            <button onclick="eject()">⚠️ EJECT!</button>
+            <label for="throttleSlider" style="color: #00ffff; font-size: clamp(12px, 1.8vh, 16px);">THR:</label>
+            <input type="range" id="throttleSlider" min="0" max="100" value="0" class="throttle" disabled>
+            <button id="shieldButton" onclick="toggleShields()" disabled>🛡️ SHIELDS OFF</button>
+        </div>
+
+        <!-- HUD (Info Display) -->
+        <div class="hud">
+            <p>SPEED: <span id="speed">0</span> KPS</p>
+            <p id="fuelIndicator">FUEL: <span id="fuel">100.0%</span></p>
+            <p>COORDS: <span id="coordinates">X:0 Y:0 Z:0</span></p>
+            <p>SHIELDS: <span id="shieldStatus">OFF</span></p>
+            <p>STATUS: <span id="shipStatus">IDLE</span></p>
+        </div>
+
+        <!-- Message Log -->
+        <div id="messageLog">
+            <h3>MESSAGE LOG</h3>
+        </div>
+
+        <!-- Countdown Overlay - Contains Both Sides -->
+        <div id="countdown">
+             <!-- Left Side: Countdown Number + Text -->
+             <div id="countdownLeft">
+                 <span id="countdownTimer">10</span>
+                 <span id="countdownEnRouteText">LAUNCHING IN...</span>
+             </div>
+             <!-- Right Side: Progress Bar Section -->
+             <div id="travelProgressSection"> <!-- Re-added this section -->
+                  <h3 id="travelDestinationHeader">LAUNCH PREPARATION</h3>
+                  <div class="progress-bar-container">
+                      <label for="travelProgressBar">Progress:</label>
+                      <progress id="travelProgressBar" value="0" max="100"></progress>
+                      <span id="travelProgressPercent">0%</span>
+                  </div>
+                  <p id="etaDisplay">Calculating ETA...</p>
+             </div>
+         </div>
+
+        <div id="cameraFlash"></div>
+
+    </div>
+
+    <!-- Audio elements -->
+    <audio id="countdown-voice" preload="auto"></audio>
+    <audio id="system-voice" preload="auto"></audio>
+
+    <script>
+        // --- Voice Over Data (Unchanged) ---
+        const countdownVoiceFiles = { 10:"countdown/10.mp3", 9:"countdown/9.mp3", 8:"countdown/8.mp3", 7:"countdown/7.mp3", 6:"countdown/6.mp3", 5:"countdown/5.mp3", 4:"countdown/4.mp3", 3:"countdown/3.mp3", 2:"countdown/2.mp3", 1:"countdown/1.mp3", 0:"countdown/0.mp3" };
+        const systemVoiceFiles = { "Launch sequence initiated": "system_voice/launch_sequence_initiated.mp3", "Pre-flight check passed": "system_voice/preflight_check_passed.mp3", "LIFTOFF!": "system_voice/liftoff.mp3", "Approaching": "system_voice/approaching.mp3", "Performing planetary scan": "system_voice/planetary_scan.mp3", "Scan complete": "system_voice/scan_complete.mp3", "ALERT: Minor meteoroid shower detected!": "system_voice/meteoroid_shower.mp3", "WARNING: Navigation sensors experiencing temporary glitch.": "system_voice/sensor_glitch.mp3", "WARNING: Solar flare detected!": "system_voice/solar_flare.mp3", "EJECT SEQUENCE INITIATED!": "system_voice/eject_sequence.mp3", "Hurray!": "system_voice/hurray.mp3", "System Boot Sequence Complete.": "system_voice/system_boot.mp3" };
+
+        // --- Voice Playback Functions (Unchanged) ---
+        function playCountdownVoice(number) { const voice = document.getElementById('countdown-voice'); const src = countdownVoiceFiles[number]; if (voice && src) { voice.src = src; voice.currentTime = 0; voice.play().catch(()=>{}); } }
+        function playSystemVoice(text) { const voice = document.getElementById('system-voice'); const srcKey = Object.keys(systemVoiceFiles).find(key => text.startsWith(key)); const src = srcKey ? systemVoiceFiles[srcKey] : null; if (voice && src) { voice.src = src; voice.currentTime = 0; voice.play().catch(()=>{}); } else if (srcKey) { console.warn("Audio element not found, but voice key existed:", srcKey); } }
+
+        // --- DOM Elements ---
+        const starsContainer = document.getElementById('stars');
+        const spaceObjectsContainer = document.getElementById('spaceObjects');
+        const speedElement = document.getElementById('speed');
+        const fuelElement = document.getElementById('fuel');
+        const fuelIndicator = document.getElementById('fuelIndicator');
+        const coordinatesElement = document.getElementById('coordinates');
+        const shieldStatusElement = document.getElementById('shieldStatus');
+        const shieldButton = document.getElementById('shieldButton');
+        const messageLogContent = document.getElementById('messageLog');
+        const cockpitWindow = document.getElementById('cockpitWindow');
+        const noDestinationMessageDiv = document.getElementById('noDestinationMessage');
+        const quizContainer = document.getElementById('quizContainer');
+        const currentQuestionElement = document.getElementById('currentQuestion');
+        const quizOptionsContainer = document.getElementById('quizOptions');
+        const quizResultElement = document.getElementById('quizResult');
+        const launchButton = document.getElementById('launchButton');
+        const countdownOverlay = document.getElementById('countdown');
+        const countdownTimer = document.getElementById('countdownTimer');
+        const countdownEnRouteText = document.getElementById('countdownEnRouteText');
+        const throttleSlider = document.getElementById('throttleSlider');
+        const shipStatusElement = document.getElementById('shipStatus');
+        const cameraFlashElement = document.getElementById('cameraFlash');
+
+        // --- ADDED BACK: Travel Progress Elements References ---
+        const travelProgressSection = document.getElementById('travelProgressSection');
+        const travelDestinationHeader = document.getElementById('travelDestinationHeader');
+        const travelProgressBar = document.getElementById('travelProgressBar');
+        const travelProgressPercent = document.getElementById('travelProgressPercent');
+        const etaDisplay = document.getElementById('etaDisplay');
+        // --- END ADDED BACK ---
+
+        // --- Game State Variables (Simplified) ---
+        let currentFuel = parseFloat(localStorage.getItem('currentFuel')) || 100.0;
+        let selectedPlanet = null;
+        let destinationPlanet = null;
+        let preFlightCheckPassed = false;
+        let maxMessages = 10;
+        let currentQuizQuestionData = null;
+        let quizFailureTimeout = null;
+        let landingTimeout = null; // Used for navigation delay
+
+        // --- Planet Questions Data (Unchanged) ---
+        const planetQuestions = { /* ... same data as before ... */
+             'earth': [ { question: "What is the escape velocity from Earth (approx)?", options: ["5 km/s", "11 km/s", "25 km/s", "42 km/s"], answerIndex: 1 }, { question: "What is the most abundant gas in Earth's atmosphere?", options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"], answerIndex: 2 }, { question: "Approximately what percentage of Earth's surface is covered by water?", options: ["50%", "61%", "71%", "80%"], answerIndex: 2 } ],
+             'mars': [ { question: "Mars is often called the ___ Planet?", options: ["Blue", "Gas", "Red", "Desert"], answerIndex: 2 }, { question: "What is the name of the largest volcano in the Solar System, located on Mars?", options: ["Mauna Kea", "Olympus Mons", "Valles Marineris", "Mount St. Helens"], answerIndex: 1 }, { question: "Mars has two small moons named Phobos and ___?", options: ["Deimos", "Europa", "Triton", "Ganymede"], answerIndex: 0 } ],
+             'jupiter': [ { question: "Jupiter is primarily composed of which two gases?", options: ["Oxygen & Nitrogen", "Helium & Neon", "Hydrogen & Helium", "Methane & Ammonia"], answerIndex: 2 }, { question: "What is the name of Jupiter's famous large, long-lasting storm?", options: ["Great Dark Spot", "Red Rectangle", "Great Red Spot", "Eye of Jupiter"], answerIndex: 2 }, { question: "How many large 'Galilean' moons does Jupiter have?", options: ["Two", "Three", "Four", "Five"], answerIndex: 2 } ],
+             'titan': [ { question: "Titan is the largest moon of which planet?", options: ["Jupiter", "Earth", "Neptune", "Saturn"], answerIndex: 3 }, { question: "Titan's thick, hazy atmosphere is primarily composed of?", options: ["Methane", "Oxygen", "Nitrogen", "Carbon Dioxide"], answerIndex: 2 }, { question: "What liquid is found in lakes and rivers on Titan's surface?", options: ["Water", "Liquid Methane/Ethane", "Ammonia", "Sulfuric Acid"], answerIndex: 1 } ],
+             'moon': [ { question: "What phenomenon significantly affects Earth due to the Moon?", options: ["Volcanoes", "Magnetic Field", "Tides", "Auroras"], answerIndex: 2 }, { question: "What is the term for the dark, flat plains formed by ancient volcanic eruptions on the Moon?", options: ["Highlands", "Craters", "Rilles", "Maria"], answerIndex: 3 }, { question: "The Moon completes one orbit around Earth in approximately how many days?", options: ["1 day", "14.5 days", "27.3 days", "30 days"], answerIndex: 2 } ],
+             'venus': [ { question: "Venus has a runaway greenhouse effect due to its atmosphere rich in...?", options: ["Oxygen", "Nitrogen", "Methane", "Carbon Dioxide"], answerIndex: 3 }, { question: "Compared to most planets, Venus rotates in which direction?", options: ["Faster", "Slower", "Retrograde (Backward)", "On its side"], answerIndex: 2 }, { question: "The surface pressure on Venus is about ___ times that of Earth.", options: ["0.5x", "1x (Same)", "10x", "92x"], answerIndex: 3 } ],
+             'ceres': [ { question: "Ceres is located in the...?", options: ["Kuiper Belt", "Oort Cloud", "Asteroid Belt", "Between Earth & Mars"], answerIndex: 2 }, { question: "Ceres is the largest object in the Asteroid Belt and is classified as a...?", options: ["Comet", "Asteroid", "Moon", "Dwarf Planet"], answerIndex: 3 }, { question: "Bright spots observed on Ceres (like in Occator Crater) are thought to be deposits of?", options: ["Water Ice", "Salt / Sodium Carbonate", "Frozen Methane", "Iron Oxide"], answerIndex: 1 } ],
+             'io': [ { question: "Io's volcanic activity is primarily caused by tidal forces from which planet?", options: ["Saturn", "Jupiter", "Uranus", "Mars"], answerIndex: 1 }, { question: "Io's surface is notable for its almost complete lack of?", options: ["Volcanoes", "Mountains", "Impact Craters", "Sulfur Deposits"], answerIndex: 2 }, { question: "What element and its compounds give Io's volcanic plumes and surface their distinct yellow/orange/red colors?", options: ["Iron", "Silicon", "Sulfur", "Carbon"], answerIndex: 2 } ],
+             'europa': [ { question: "Europa is hypothesized to have a large subsurface...?", options: ["Ocean of Water", "Magma Ocean", "Methane Lake", "Iron Core"], answerIndex: 0 }, { question: "Europa's relatively smooth surface is primarily composed of?", options: ["Rock", "Water Ice", "Frozen Nitrogen", "Dust"], answerIndex: 1 }, { question: "What are the long, crack-like features that crisscross Europa's icy surface called?", options: ["Craters", "Maria", "Dunes", "Lineae"], answerIndex: 3 } ],
+             'ganymede': [ { question: "Ganymede is unique among moons for having its own...?", options: ["Atmosphere", "Rings", "Magnetic Field", "Volcanoes"], answerIndex: 2 }, { question: "Ganymede, Jupiter's largest moon, is even larger than which planet?", options: ["Earth", "Venus", "Mars", "Mercury"], answerIndex: 3 }, { question: "Ganymede's surface shows a contrast between older, dark, cratered terrain and younger, lighter, ____ terrain.", options: ["Smooth", "Volcanic", "Grooved", "Oceanic"], answerIndex: 2 } ],
+             'callisto': [ { question: "Callisto's surface is one of the most heavily ____ in the Solar System.", options: ["Volcanic", "Cratered", "Smooth", "Mountainous"], answerIndex: 1 }, { question: "Callisto is considered geologically inactive and has a very old, heavily cratered surface. This implies it has low internal ___?", options: ["Gravity", "Heat", "Magnetism", "Water Content"], answerIndex: 1 }, { question: "What is the name of the enormous multi-ring impact basin visible on Callisto?", options: ["Mare Imbrium", "Caloris Basin", "Valhalla", "Hellas Planitia"], answerIndex: 2 } ],
+             'saturn': [ { question: "Saturn's rings are primarily composed of...?", options: ["Gas", "Rock", "Dust", "Ice Particles"], answerIndex: 3 }, { question: "Saturn is known for having the lowest ____ of any planet, less than water.", options: ["Temperature", "Density", "Gravity", "Magnetic Field"], answerIndex: 1 }, { question: "While complex, astronomers typically identify how many main groups for Saturn's rings (e.g., A, B, C)?", options: ["2", "3", "7", "12"], answerIndex: 2 } ],
+             'uranus': [ { question: "Uranus rotates on its side, likely due to a massive...?", options: ["Collision", "Volcanic Eruption", "Magnetic Shift", "Solar Wind"], answerIndex: 0 }, { question: "The pale blue-green color of Uranus is primarily due to the presence of ____ gas in its atmosphere.", options: ["Helium", "Hydrogen", "Ammonia", "Methane"], answerIndex: 3 }, { question: "Does Uranus possess a ring system?", options: ["No", "Yes, bright icy rings", "Yes, faint dark rings", "Only a single ring"], answerIndex: 2 } ],
+             'neptune': [ { question: "Neptune's Great Dark Spot (observed by Voyager 2) was a massive...?", options: ["Crater", "Storm System", "Volcano", "Ocean"], answerIndex: 1 }, { question: "Neptune is known for having the fastest ____ in the Solar System.", options: ["Rotation", "Orbit", "Winds", "Moons"], answerIndex: 2 }, { question: "What is the name of Neptune's largest moon, notable for its retrograde orbit and geysers?", options: ["Titan", "Ganymede", "Triton", "Europa"], answerIndex: 2 } ],
+             'pluto': [ { question: "Pluto was reclassified from a planet to a ____ planet in 2006.", options: ["Minor", "Proto", "Dwarf", "Ice"], answerIndex: 2 }, { question: "What is the name of Pluto's largest moon, which is nearly half its size?", options: ["Nix", "Hydra", "Styx", "Charon"], answerIndex: 3 }, { question: "What is the informal name of the large, bright, heart-shaped feature on Pluto's surface?", options: ["Tombaugh Regio", "Cthulhu Macula", "Sputnik Planitia", "Viking Terra"], answerIndex: 2 } ],
+             'mercury': [ { question: "Mercury has the most ____ orbit of all the planets.", options: ["Circular", "Elliptical (Eccentric)", "Retrograde", "Inclined"], answerIndex: 1 }, { question: "Relative to its size, Mercury has an unusually large...?", options: ["Atmosphere", "Moon", "Iron Core", "Water Ice Cap"], answerIndex: 2 }, { question: "Does Mercury have a substantial atmosphere like Earth or Venus?", options: ["Yes, dense CO2", "Yes, mostly Nitrogen", "No, only a thin exosphere", "Yes, thin Oxygen"], answerIndex: 2 } ],
+        };
+
+        // --- Initialization (Simplified) ---
+        window.onload = () => {
+            clearTimeout(quizFailureTimeout); clearTimeout(landingTimeout);
+            const targetPlanet = localStorage.getItem('selectedPlanet');
+
+            if (targetPlanet && planetQuestions[targetPlanet]) {
+                selectedPlanet = targetPlanet;
+                addMessage(`System Boot Sequence Complete. Pre-flight check for ${selectedPlanet.toUpperCase()} initiated.`, "system");
+                playSystemVoice("System Boot Sequence Complete.");
+                noDestinationMessageDiv.style.display = 'none';
+                quizContainer.style.display = 'block';
+                launchButton.style.display = 'block';
+                loadQuiz(selectedPlanet);
+                disableLaunchButton();
+            } else {
+                 addMessage("System Boot Sequence Complete. No valid destination selected from Spaceport.", "system");
+                 playSystemVoice("System Boot Sequence Complete.");
+                 noDestinationMessageDiv.style.display = 'block';
+                 quizContainer.style.display = 'none';
+                 launchButton.style.display = 'none';
+                 disableLaunchButton();
+                 if (targetPlanet) { addMessage(`Error: Pre-flight check data missing for ${targetPlanet}. Return to Spaceport.`, "error"); }
+            }
+
+            generateStars(400);
+            generateSpaceObjects(20);
+            throttleSlider.disabled = true;
+            shieldButton.disabled = true;
+            updateHUD();
+
+            fuelElement.textContent = currentFuel.toFixed(1) + '%'; localStorage.setItem('currentFuel', currentFuel);
+        };
+
+        // --- HUD Update (Simplified Status) ---
+        function updateHUD() {
+             speedElement.textContent = 0; // Always 0
+             fuelElement.textContent = currentFuel.toFixed(1) + '%';
+             coordinatesElement.textContent = `X:0 Y:0 Z:0`;
+             shieldStatusElement.textContent = "OFF"; // Always OFF
+             shieldButton.textContent = "🛡️ SHIELDS OFF";
+
+             const lowFuelThreshold = 20;
+             fuelIndicator.classList.toggle("warning", currentFuel < lowFuelThreshold && currentFuel > 0);
+             if (currentFuel <= 0) { fuelIndicator.textContent = "FUEL DEPLETED"; fuelIndicator.classList.add("warning"); }
+             else if (currentFuel < lowFuelThreshold) { fuelIndicator.textContent = `FUEL: ${currentFuel.toFixed(1)}% LOW!`; }
+             else { fuelIndicator.textContent = `FUEL: ${currentFuel.toFixed(1)}%`; fuelIndicator.classList.remove("warning"); }
+
+            // Update Ship Status Text (Simplified)
+             if (shipStatusElement.textContent.startsWith("LAUNCHING")) {
+                // Keep launching status briefly
+             } else if (preFlightCheckPassed && selectedPlanet) {
+                 shipStatusElement.textContent = "READY FOR LAUNCH";
+                 shipStatusElement.parentElement.classList.remove("warning");
+             } else if (selectedPlanet) {
+                 shipStatusElement.textContent = "AWAITING PRE-FLIGHT";
+                 shipStatusElement.parentElement.classList.remove("warning");
+             } else {
+                 shipStatusElement.textContent = "IDLE (NO DESTINATION)";
+                 shipStatusElement.parentElement.classList.remove("warning");
+             }
+
+             const stars = document.querySelectorAll('.star');
+             stars.forEach(star => { star.style.animationPlayState = 'paused'; });
+         }
+
+        // --- Add Message (Unchanged) ---
+        function addMessage(text, type = "info") { const log = messageLogContent; const message = document.createElement('p'); const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }); message.textContent = `[${timestamp}] ${text}`; if (type === "alert") { message.style.color = "#ffcc00"; } else if (type === "error") { message.style.color = "#ff4444"; } else if (type === "system") { message.style.color = "#aaa"; } else if (type === "success") { message.style.color = "#00ff00"; } if (log.children.length > 1) { log.insertBefore(message, log.children[1]); } else { log.appendChild(message); } while (log.children.length > maxMessages + 1) { log.removeChild(log.lastChild); } }
+
+        // --- Eject Function (Simplified) ---
+        function eject() { addMessage("EJECT SEQUENCE INITIATED! GOOD LUCK!", "error"); playSystemVoice("EJECT SEQUENCE INITIATED!"); shipStatusElement.textContent = "HALTED"; shipStatusElement.parentElement.classList.add("warning"); shieldButton.disabled = true; throttleSlider.disabled = true; cockpitWindow.innerHTML = `<h1 style="color: #ff4444; animation: shake 0.5s infinite;">EJECT! EJECT! EJECT!</h1><p>Escape pod launched...</p>`; const styleSheet = document.styleSheets[0]; try { let ruleExists = false; for (let i = 0; i < styleSheet.cssRules.length; i++) { if (styleSheet.cssRules[i] instanceof CSSKeyframesRule && styleSheet.cssRules[i].name === 'shake') { ruleExists = true; break; } } if (!ruleExists) { styleSheet.insertRule(`@keyframes shake { 0%, 100% { transform: translateX(0); } 10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); } 20%, 40%, 60%, 80% { transform: translateX(8px); } }`, styleSheet.cssRules.length); } } catch (e) { console.warn("Could not insert shake animation rule:", e); } localStorage.removeItem('selectedPlanet'); localStorage.removeItem('currentFuel'); localStorage.removeItem('destinationPlanet'); setTimeout(() => { window.location.href = 'ejection.html'; }, 1500); }
+
+        // --- Quiz Logic (Unchanged) ---
+        function loadQuiz(planet) { /* ... same as before ... */ const planetQuestionArray = planetQuestions[planet]; if (!planetQuestionArray || planetQuestionArray.length === 0) { addMessage(`Error: No quiz data found for ${planet}. Returning to Spaceport.`, "error"); setTimeout(() => { window.location.href = 'index.html'; }, 3000); return; } const randomIndex = Math.floor(Math.random() * planetQuestionArray.length); currentQuizQuestionData = planetQuestionArray[randomIndex]; currentQuestionElement.textContent = currentQuizQuestionData.question; quizOptionsContainer.innerHTML = ''; quizResultElement.textContent = ''; currentQuizQuestionData.options.forEach((option, index) => { const button = document.createElement('button'); button.textContent = option; button.onclick = () => submitQuizOption(index); quizOptionsContainer.appendChild(button); }); addMessage(`Presenting pre-flight question #${randomIndex + 1} for ${planet.toUpperCase()}.`, "system"); }
+        function submitQuizOption(chosenIndex) { /* ... same as before ... */ if (!currentQuizQuestionData || quizFailureTimeout) return; const correctAnswerIndex = currentQuizQuestionData.answerIndex; const optionButtons = document.querySelectorAll('#quizOptions button'); optionButtons.forEach(button => { button.disabled = true; }); if (chosenIndex === correctAnswerIndex) { quizResultElement.textContent = "Correct! Pre-flight check passed."; quizResultElement.style.color = "#00ff00"; optionButtons[chosenIndex].classList.add('correct'); preFlightCheckPassed = true; enableLaunchButton(); addMessage(`Pre-flight check for ${selectedPlanet.toUpperCase()} passed.`, "success"); playSystemVoice("Pre-flight check passed"); } else { quizResultElement.textContent = "Incorrect! Pre-flight Check Failed. Restarting..."; quizResultElement.style.color = "#ff4444"; optionButtons[chosenIndex].classList.add('incorrect'); if (optionButtons[correctAnswerIndex]) { optionButtons[correctAnswerIndex].classList.add('correct'); } preFlightCheckPassed = false; disableLaunchButton(); addMessage(`Pre-flight check failed. Incorrect answer. Reloading cockpit...`, "error"); quizFailureTimeout = setTimeout(() => { window.location.reload(); }, 3000); } }
+        function enableLaunchButton() { /* ... same as before ... */ launchButton.textContent = '🚀 LAUNCH'; launchButton.classList.add('enabled'); launchButton.disabled = false; }
+        function disableLaunchButton() { /* ... same as before ... */ launchButton.textContent = '🚀 AWAITING LAUNCH CLEARANCE'; launchButton.classList.remove('enabled'); launchButton.disabled = true; }
+
+         // --- Modified startLaunchSequence ---
+         function startLaunchSequence() {
+            // Check if pre-flight passed or sequence already started
+            if (!preFlightCheckPassed) {
+                addMessage("Launch aborted: Pre-flight incomplete.", "warning");
+                return;
+            }
+             // Check if countdown overlay is already visible to prevent double triggers
+             if (countdownOverlay.classList.contains('visible')) {
+                 addMessage("Launch sequence already initiated.", "info");
+                 return;
+             }
+
+
+            destinationPlanet = selectedPlanet;
+            const launchMessage = `Launch sequence initiated for ${destinationPlanet.toUpperCase()}. T-10 seconds.`;
+            addMessage(launchMessage, "system");
+            playSystemVoice("Launch sequence initiated");
+
+            disableLaunchButton(); // Disable button
+
+            // Hide quiz/initial message elements
+            quizContainer.style.display = 'none';
+            launchButton.style.display = 'none';
+            noDestinationMessageDiv.style.display = 'none';
+
+            // Show countdown overlay and the progress section within it
+            countdownOverlay.classList.add('visible');
+            travelProgressSection.style.display = 'flex'; // Show progress section
+            countdownEnRouteText.classList.remove('hidden'); // Show "Launching In..."
+            etaDisplay.classList.remove('hidden'); // Show ETA display
+
+            // Update progress header for countdown phase
+            travelDestinationHeader.textContent = "LAUNCH PREPARATION";
+
+            // Initialize countdown and progress
+            let count = 10;
+            countdownTimer.textContent = count;
+            travelProgressBar.value = 0; // Start at 0%
+            travelProgressPercent.textContent = '0%';
+            // Calculate initial total ETA (can just be 10s now)
+            // const totalTravelSeconds = 0; // No actual travel time after countdown
+            etaDisplay.textContent = `ETA: ${count}s`; // Show countdown as ETA
+            playCountdownVoice(count); // Play first number
+
+            // Start countdown interval
+            const countdownInterval = setInterval(() => {
+                count--;
+
+                if (countdownTimer) { countdownTimer.textContent = count; }
+                else { clearInterval(countdownInterval); return; }
+
+                playCountdownVoice(count);
+
+                // Calculate progress percentage (0 to 100% over 10 seconds)
+                const progressPercent = (10 - count) * 10;
+                travelProgressBar.value = progressPercent;
+                travelProgressPercent.textContent = `${Math.floor(progressPercent)}%`;
+                etaDisplay.textContent = `ETA: ${count}s`; // Update ETA to match countdown
+
+                // Check if countdown finished
+                if (count <= 0) {
+                    clearInterval(countdownInterval);
+                    if (countdownEnRouteText) { countdownEnRouteText.classList.add('hidden'); }
+                    if (etaDisplay) { etaDisplay.classList.add('hidden'); } // Hide ETA as well
+                    navigateToDestination(); // Proceed to navigation
+                }
+            }, 1000);
+        }
+
+        // --- Modified navigateToDestination ---
+        function navigateToDestination() {
+            // Update status briefly (optional)
+            shipStatusElement.textContent = `LAUNCHING TO ${destinationPlanet.toUpperCase()}`;
+            updateHUD(); // Refresh HUD to show status
+
+            const liftoffMessage = `LIFTOFF! Proceeding to ${destinationPlanet.toUpperCase()}.`;
+            addMessage(liftoffMessage, "success");
+            playSystemVoice("LIFTOFF!");
+
+             // Hide countdown overlay after a short delay
+             setTimeout(() => {
+                if (countdownOverlay) countdownOverlay.classList.remove('visible');
+             }, 300);
+
+             // Set destination in localStorage
+             localStorage.setItem('destinationPlanet', destinationPlanet);
+
+             // Redirect after a slightly longer delay
+             landingTimeout = setTimeout(() => {
+                 window.location.href = 'spacegame3.html';
+             }, 1000); // 1 second delay
+         }
+
+
+        // --- Object Generation (Unchanged) ---
+        function generateStars(count) { starsContainer.innerHTML = ''; for (let i = 0; i < count; i++) { const star = document.createElement('div'); star.classList.add('star'); const angle = Math.random() * Math.PI * 2; const radius = Math.pow(Math.random(), 1.5) * Math.min(window.innerWidth, window.innerHeight) * 0.7; star.style.left = `calc(50% + ${Math.cos(angle) * radius}px)`; star.style.top = `calc(50% + ${Math.sin(angle) * radius}px)`; star.style.width = (Math.random() * 1.5 + 0.5) + 'px'; star.style.height = star.style.width; star.style.animationPlayState = 'paused'; const duration = Math.random() * 6 + 6; const delay = Math.random() * duration; star.style.animation = `starTravel ${duration}s linear ${delay}s infinite`; starsContainer.appendChild(star); } }
+        function generateSpaceObjects(count) { spaceObjectsContainer.innerHTML = ''; const objectTypes = [ { type: 'asteroid', color: '#8B4513', minSize: 10, maxSize: 40 }, { type: 'ice_asteroid', color: '#add8e6', minSize: 15, maxSize: 50 }, { type: 'small_planetoid', color: `hsl(${Math.random() * 360}, 50%, 50%)`, minSize: 50, maxSize: 100 }, { type: 'debris', color: '#555', minSize: 5, maxSize: 15 } ]; for (let i = 0; i < count; i++) { const obj = document.createElement('div'); obj.classList.add('space-object'); const typeInfo = objectTypes[Math.floor(Math.random() * objectTypes.length)]; const size = Math.random() * (typeInfo.maxSize - typeInfo.minSize) + typeInfo.minSize; obj.style.width = size + 'px'; obj.style.height = size + 'px'; obj.style.background = typeInfo.color; if (typeInfo.type === 'small_planetoid') { obj.style.background = `radial-gradient(circle at 30% 30%, ${typeInfo.color}, #333)`; } if (typeInfo.type === 'debris') { obj.style.borderRadius = `${Math.random()*40+10}% ${Math.random()*40+10}%`; } else { obj.style.borderRadius = '50%'; } const duration = Math.random() * 20 + 15; const delay = Math.random() * duration; const startY = Math.random() * 80 + 10; const endY = startY + (Math.random() - 0.5) * 40; obj.style.setProperty('--start-y', `${startY}vh`); obj.style.setProperty('--end-y', `${endY}vh`); obj.style.animation = `flyPast ${duration}s linear ${delay}s infinite`; obj.style.animationPlayState = 'running'; spaceObjectsContainer.appendChild(obj); } }
+
+        // --- Debounce and Resize (Unchanged) ---
+        function debounce(func, wait, immediate) { var timeout; return function() { var context = this, args = arguments; var later = function() { timeout = null; if (!immediate) func.apply(context, args); }; var callNow = immediate && !timeout; clearTimeout(timeout); timeout = setTimeout(later, wait); if (callNow) func.apply(context, args); }; };
+        window.addEventListener('resize', debounce(() => { console.log("Window resized - regenerating stars/objects"); generateStars(400); generateSpaceObjects(20); updateHUD(); }, 250));
+
+    </script>
+</body>
+</html>

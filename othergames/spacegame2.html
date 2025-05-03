@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Space Explorer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Orbitron', sans-serif; /* Consider adding a fallback font like sans-serif */
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+      touch-action: none; /* Prevents scrolling/zooming on touch devices */
+    }
+
+    #gameArea {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: radial-gradient(ellipse at center, #0a0e2a 0%, #000 100%);
+      overflow: hidden;
+    }
+
+    /* --- ADDED Game Title Style --- */
+    #game-title {
+        position: absolute;
+        top: 20px; /* Position below the very top edge */
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 28px;
+        font-weight: bold;
+        color: cyan;
+        text-shadow: 0 0 10px cyan, 0 0 20px blue;
+        z-index: 19; /* Above stars, below HUD/messages */
+        pointer-events: none; /* Don't let it interfere with clicks */
+        white-space: nowrap; /* Prevent wrapping */
+    }
+
+    #player {
+      width: 50px; /* Adjusted for astronaut */
+      height: 70px; /* Adjusted for astronaut */
+      position: absolute;
+      /* Using inline SVG for the astronaut */
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 70"><circle cx="25" cy="15" r="12" fill="%23E0E0E0" stroke="%23FFFFFF" stroke-width="0.5"/><rect x="18" y="10" width="14" height="10" fill="%23222" rx="2"/><rect x="10" y="25" width="30" height="35" fill="%23FFFFFF" rx="5"/><rect x="5" y="30" width="5" height="20" fill="%23CCCCCC" rx="2"/><rect x="40" y="30" width="5" height="20" fill="%23CCCCCC" rx="2"/><rect x="12" y="60" width="8" height="10" fill="%23CCCCCC" rx="2"/><rect x="30" y="60" width="8" height="10" fill="%23CCCCCC" rx="2"/></svg>') no-repeat center;
+      background-size: contain;
+      filter: drop-shadow(0 0 8px white); /* Neutral white glow */
+      z-index: 10;
+      transform-origin: center center; /* Rotate around center */
+    }
+
+    .obstacle {
+      position: absolute;
+      /* No border-radius for irregular shape */
+      filter: drop-shadow(0 0 5px red); /* Keep shadow for visibility */
+      /* Background color set in JS */
+    }
+
+    /* --- Destination Style (Space Station) --- */
+    .destination { /* Changed from .planet */
+      width: 120px; /* Adjusted size */
+      height: 80px;  /* Adjusted size */
+      position: absolute;
+      right: 5%;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 0 15px rgba(100, 200, 255, 0.7)); /* Adjusted glow */
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    /* --- Specific Destination: Space Station --- */
+    #spaceStation { /* Changed from #mars */
+      /* Position station */
+      /* Using a simple SVG for a space station */
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><rect x="20" y="30" width="80" height="20" fill="%23CCCCCC" rx="5"/><rect x="45" y="10" width="30" height="60" fill="%23EEEEEE" rx="3"/><rect x="0" y="35" width="20" height="10" fill="%234444FF"/><rect x="100" y="35" width="20" height="10" fill="%234444FF"/><rect x="25" y="5" width="10" height="70" fill="%238888FF" rx="2"/><rect x="85" y="5" width="10" height="70" fill="%238888FF" rx="2"/><circle cx="60" cy="40" r="5" fill="%23FFCC00"/></svg>');
+      top: 50%; /* Center vertically */
+      transform: translateY(-50%); /* Adjust for element height */
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      display: flex;
+      gap: 20px;
+      z-index: 20;
+    }
+
+    #message {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      border: 2px solid cyan;
+      display: none;
+      z-index: 30;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    #quiz-container {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      padding: 20px;
+      border-radius: 15px;
+      border: 2px solid cyan;
+      z-index: 40;
+      display: none;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    #quiz-question {
+      font-size: 20px;
+      margin-bottom: 20px;
+      min-height: 24px; /* Ensure space even when empty */
+    }
+
+    .quiz-option {
+      background: rgba(0, 100, 255, 0.3);
+      border: 1px solid cyan;
+      border-radius: 5px;
+      padding: 10px;
+      margin: 10px 0;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .quiz-option:hover {
+      background: rgba(0, 150, 255, 0.5);
+    }
+
+    #quiz-result {
+      margin-top: 20px;
+      font-size: 18px;
+      min-height: 27px; /* Space for result text */
+    }
+
+    /* Style for the retry button */
+    #quiz-retry {
+      background: rgba(255, 150, 0, 0.6); /* Orange-ish */
+      border: 1px solid orange;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 5px;
+      margin-top: 20px;
+      cursor: pointer;
+      display: none; /* Hidden by default */
+    }
+    #quiz-retry:hover {
+        background: rgba(255, 180, 50, 0.7);
+    }
+
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 2s infinite alternate;
+      pointer-events: none; /* Stars should not block clicks */
+    }
+
+    #star-field {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      pointer-events: none; /* Allow clicks to pass through */
+      z-index: 1; /* Behind everything else */
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      z-index: 20;
+    }
+
+    .control-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(0, 100, 255, 0.5);
+      border: 2px solid cyan;
+      border-radius: 50%;
+      color: white;
+      font-size: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none; /* Prevent text selection on buttons */
+    }
+
+    #joystick {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: rgba(0, 100, 255, 0.3);
+      border: 2px solid cyan;
+      border-radius: 50%;
+      bottom: 30px;
+      left: 30px;
+      display: none; /* Hidden by default, shown via media query */
+    }
+
+    #joystick-knob {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: rgba(0, 200, 255, 0.7);
+      border-radius: 50%;
+      /* Initial position centered */
+      top: 20px;
+      left: 20px;
+    }
+
+    @media (max-width: 768px) {
+      #joystick {
+        display: block;
+      }
+      #controls {
+        display: none;
+      }
+
+      #quiz-container {
+        width: 90%; /* Take more width on smaller screens */
+      }
+      /* --- Adjust title size on smaller screens --- */
+      #game-title {
+          font-size: 22px;
+          top: 15px; /* Slightly higher maybe */
+      }
+    }
+
+    /* Rocket flame animation REMOVED */
+
+    .shield-powerup {
+      animation: shieldPulse 1s infinite alternate;
+    }
+    @keyframes shieldPulse {
+      0% { box-shadow: 0 0 10px #00ffff; }
+      100% { box-shadow: 0 0 30px #00ffff, 0 0 60px #00f; }
+    }
+
+    .extra-life-powerup {
+      animation: heartPulse 1s infinite alternate;
+    }
+    @keyframes heartPulse {
+      0% { filter: drop-shadow(0 0 5px #ff69b4); }
+      100% { filter: drop-shadow(0 0 20px #ff69b4); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background music (check browser policies on autoplay) -->
+  <audio id="bg-music" src="space-beat-276093.mp3" autoplay loop muted></audio>
+
+  <script>
+  // Ensure music plays on first user interaction (click or touch)
+  function enableMusicPlayback() {
+      const bgMusic = document.getElementById('bg-music');
+      if (bgMusic) {
+          bgMusic.muted = false;
+          bgMusic.play().catch(() => {});
+      }
+      window.removeEventListener('pointerdown', enableMusicPlayback);
+      window.removeEventListener('click', enableMusicPlayback);
+      window.removeEventListener('touchstart', enableMusicPlayback);
+  }
+  window.addEventListener('pointerdown', enableMusicPlayback);
+  window.addEventListener('click', enableMusicPlayback);
+  window.addEventListener('touchstart', enableMusicPlayback);
+  </script>
+
+  <div id="gameArea">
+    <div id="star-field"></div>
+    <!-- --- ADDED Game Title Element --- -->
+    <div id="game-title">Rescue the Astronaut</div>
+    <div id="player"></div>
+    <!-- --- Destination Element --- -->
+    <div class="destination" id="spaceStation"></div> <!-- Changed from planet/mars -->
+    <div id="hud">
+      <div>Lives: <span id="lives">3</span></div>
+      <div>Score: <span id="score">0</span></div>
+      <div>Time: <span id="timer">60</span>s</div>
+      <div>Credits: <span id="credits">0</span></div>
+    </div>
+    <div id="message"></div>
+
+    <div id="quiz-container">
+      <div id="quiz-question"></div>
+      <div id="quiz-options"></div>
+      <div id="quiz-result"></div>
+      <!-- Removed quiz-next, added quiz-retry -->
+      <button id="quiz-retry">Try Again</button>
+    </div>
+
+    <div id="controls">
+      <div class="control-btn" id="up">↑</div>
+      <div class="control-btn" id="left">←</div>
+      <div class="control-btn" id="right">→</div>
+      <div class="control-btn" id="down">↓</div>
+    </div>
+
+    <div id="joystick">
+      <div id="joystick-knob"></div>
+    </div>
+  </div>
+
+  <script>
+    // Game elements
+    const player = document.getElementById("player");
+    const spaceStation = document.getElementById("spaceStation");
+    const hudLives = document.getElementById("lives");
+    const hudScore = document.getElementById("score");
+    const hudTimer = document.getElementById("timer");
+    const messageBox = document.getElementById("message");
+    const gameArea = document.getElementById("gameArea");
+    const quizContainer = document.getElementById("quiz-container");
+    const quizQuestion = document.getElementById("quiz-question");
+    const quizOptions = document.getElementById("quiz-options");
+    const quizResult = document.getElementById("quiz-result");
+    // const quizNext = document.getElementById("quiz-next"); // Removed reference
+    const quizRetry = document.getElementById("quiz-retry"); // Added reference
+    const starField = document.getElementById('star-field');
+    const creditsDisplay = document.getElementById('credits');
+    // No JS needed for the static title element
+
+    // Game state
+    const MAX_LIVES = 5;
+    let lives = 3;
+    let score = 0;
+    let timer = 60;
+    let playerSpeed = 1.15; // Player speed increased (1.5x original)
+    let playerPos = { x: 50, y: window.innerHeight / 2 };
+    let obstacleIntervals = [];
+    let isGameRunning = true;
+    let joystickActive = false;
+    let joystickDirection = { x: 0, y: 0 };
+    let playerRotation = 0;
+    let currentStation = null; // Keep track of which station triggered quiz
+    // let currentQuestionIndex = 0; // Removed - only one question now
+    let correctAnswers = 0; // Can still track if the single answer was right
+    let credits = 0;
+    let shieldActive = false;
+    let shieldTimeout = null;
+    let currentStationId = null; // Store station ID for retries
+
+    // Destination quiz questions
+    const stationQuizzes = { // Changed from planetQuizzes
+      spaceStation: [ // Changed key from mars
+        {
+          question: "What does ISS stand for?",
+          options: [
+            "International Space Station",
+            "Internal Security System",
+            "Interstellar Science Society",
+            "Integrated Solar Sails"
+          ],
+          answer: 0,
+          fact: "The ISS is a modular space station in low Earth orbit, a multinational collaborative project involving five space agencies."
+        },
+        // Note: Only the first question (index 0) will be used.
+        {
+          question: "What is the primary purpose of a space station?",
+          options: [
+            "Long-term scientific research in microgravity",
+            "Launching probes to other planets",
+            "Mining asteroids",
+            "Space tourism"
+          ],
+          answer: 0,
+          fact: "Space stations like the ISS serve as microgravity labs for research in biology, physics, astronomy, and more."
+        }
+      ]
+    };
+
+    // Create stars in the star field
+    function createStarField() {
+      starField.innerHTML = ''; // Clear existing stars if called again
+      for (let i = 0; i < 200; i++) { // Increased star count
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = Math.random() * 3 + 1; // Slightly larger max size
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${Math.random() * 100}vw`;
+        const top = Math.random() * 100;
+        star.setAttribute('data-top', top); // Store initial position
+        star.style.top = `${top}vh`;
+        const speed = Math.random() * 0.5 + 0.5; // Random speed for parallax
+        star.setAttribute('data-speed', speed);
+        star.style.animationDelay = `${Math.random() * 2}s`; // Randomize twinkle start
+        starField.appendChild(star);
+      }
+    }
+
+    // Move stars for parallax effect
+    function moveStarField() {
+        if (!isGameRunning) return; // Don't move if game paused
+        const stars = starField.querySelectorAll('.star');
+        stars.forEach(star => {
+            let top = parseFloat(star.getAttribute('data-top'));
+            const speed = parseFloat(star.getAttribute('data-speed'));
+            top += speed * 0.1; // Slow down the parallax effect slightly
+
+            if (top > 100) {
+                top = -1; // Start just above the screen
+                star.style.left = `${Math.random() * 100}vw`; // Reposition horizontally
+            }
+            star.setAttribute('data-top', top);
+            star.style.top = `${top}vh`;
+        });
+    }
+
+    // Player movement
+    function movePlayer(dx, dy) {
+      if (!isGameRunning) return;
+
+      playerPos.x += dx;
+      playerPos.y += dy;
+
+      // Calculate rotation based on movement direction (only if moving)
+      if (dx !== 0 || dy !== 0) {
+        // atan2 gives angle in radians, convert to degrees, add 90 for ship orientation
+        // Adjust angle calculation for astronaut (0 degrees = pointing right)
+        playerRotation = Math.atan2(dy, dx) * (180 / Math.PI) + 90; // +90 makes top of SVG point forward
+        player.style.transform = `rotate(${playerRotation}deg)`;
+      }
+
+      // Boundary checking (ensure player stays within screen)
+      const playerWidth = player.offsetWidth;
+      const playerHeight = player.offsetHeight;
+      playerPos.x = Math.max(0, Math.min(window.innerWidth - playerWidth, playerPos.x));
+      playerPos.y = Math.max(0, Math.min(window.innerHeight - playerHeight, playerPos.y));
+
+      player.style.left = playerPos.x + 'px';
+      player.style.top = playerPos.y + 'px';
+
+      checkStationCollision(); // Changed function call
+      checkPowerupCollision(); // Check for power-up collision after moving
+    }
+
+    // Check if player reached the station
+    function checkStationCollision() { // Renamed function
+      if (!isGameRunning) return;
+
+      const playerRect = player.getBoundingClientRect();
+      const destinations = document.querySelectorAll('.destination'); // Use new class
+
+      for (const station of destinations) { // Changed variable name
+        const stationRect = station.getBoundingClientRect(); // Changed variable name
+        // Basic AABB collision detection
+        if (
+          playerRect.left < stationRect.right && // Use stationRect
+          playerRect.right > stationRect.left &&
+          playerRect.top < stationRect.bottom &&
+          playerRect.bottom > stationRect.top
+        ) {
+          // Check if the station exists in quizzes before starting
+          if (stationQuizzes[station.id]) { // Use stationQuizzes and station.id
+            currentStation = station.id;    // Use currentStation and station.id
+            startQuiz(currentStation);      // Pass station ID
+          } else {
+            console.warn(`Quiz not found for destination: ${station.id}`); // Update message
+          }
+          return; // Exit after finding one collision
+        }
+      }
+    }
+
+    // Check for collision with power-ups
+    function checkPowerupCollision() {
+        if (!isGameRunning) return;
+        const playerRect = player.getBoundingClientRect();
+        const powerups = document.querySelectorAll('.shield-powerup, .extra-life-powerup');
+
+        powerups.forEach(powerup => {
+            const powerupRect = powerup.getBoundingClientRect();
+            if (
+                playerRect.left < powerupRect.right &&
+                playerRect.right > powerupRect.left &&
+                playerRect.top < powerupRect.bottom &&
+                playerRect.bottom > powerupRect.top
+            ) {
+                if (powerup.classList.contains('shield-powerup')) {
+                    activateShield();
+                } else if (powerup.classList.contains('extra-life-powerup')) {
+                    if (lives < MAX_LIVES) {
+                        lives++;
+                        hudLives.textContent = lives;
+                    }
+                }
+                powerup.remove(); // Remove the collected power-up
+            }
+        });
+    }
+
+
+    // Start station quiz - MODIFIED
+    function startQuiz(stationId) {
+      if (!stationQuizzes[stationId] || stationQuizzes[stationId].length === 0) { // Check if quiz exists and has at least one question
+          console.error(`No quiz data or questions found for station: ${stationId}`);
+          isGameRunning = true; // Allow game to continue if quiz fails to load
+          return;
+      }
+      isGameRunning = false; // Pause game during quiz
+      currentStationId = stationId; // Store the station ID for potential retries
+      correctAnswers = 0; // Reset correct answer count for this attempt
+      showNextQuestion(stationId); // Show the first (and only) question
+    }
+
+    // Show the quiz question - MODIFIED
+    function showNextQuestion(stationId) {
+       const quizData = stationQuizzes[stationId];
+       // We only use the first question (index 0)
+       if (!quizData || quizData.length === 0) { // Added safety check
+            console.error("Cannot show question, no quiz data for station:", stationId);
+            quizContainer.style.display = 'none'; // Hide quiz if data issue
+            isGameRunning = true; // Let game continue
+            return;
+       }
+       const question = quizData[0];
+
+       quizQuestion.textContent = question.question;
+       quizOptions.innerHTML = ''; // Clear previous options
+
+       question.options.forEach((option, index) => {
+         const optionElement = document.createElement('div');
+         optionElement.className = 'quiz-option';
+         optionElement.textContent = option;
+         // Ensure options are clickable again if retrying
+         optionElement.style.pointerEvents = 'auto';
+         optionElement.style.opacity = '1';
+         optionElement.style.background = 'rgba(0, 100, 255, 0.3)'; // Reset style
+         optionElement.style.border = '1px solid cyan';       // Reset style
+         // Pass stationId to checkAnswer
+         optionElement.addEventListener('click', () => checkAnswer(index, question.answer, question.fact, stationId));
+         quizOptions.appendChild(optionElement);
+       });
+
+       quizResult.textContent = ''; // Clear previous result
+       quizRetry.style.display = 'none'; // Hide retry button initially
+       quizRetry.onclick = null; // Remove previous retry listener
+       quizContainer.style.display = 'block'; // Show quiz panel
+    }
+
+    // Check quiz answer - MODIFIED
+    function checkAnswer(selectedIndex, correctIndex, fact, stationId) {
+      const options = quizOptions.querySelectorAll('.quiz-option');
+
+      // Disable further clicks and style options
+      options.forEach((option, index) => {
+        option.style.pointerEvents = 'none'; // Disable clicks on all options
+        if (index === correctIndex) {
+          option.style.background = 'rgba(0, 200, 0, 0.5)'; // Green for correct
+          option.style.border = '1px solid lime';
+        } else if (index === selectedIndex) { // Only highlight wrong if it was selected
+          option.style.background = 'rgba(200, 0, 0, 0.5)'; // Red for incorrect selected
+          option.style.border = '1px solid red';
+        } else {
+           option.style.opacity = '0.6'; // Dim others
+        }
+      });
+
+      if (selectedIndex === correctIndex) {
+        // --- CORRECT ANSWER ---
+        correctAnswers++; // Increment (though only one question)
+        credits += 10; // Award credits
+        updateCreditsDisplay();
+
+        // Add score (e.g., base points + time bonus)
+        score += 50; // Base points for correct answer
+        if (timer > 0) {
+            score += timer * 5; // Add time bonus
+        }
+        hudScore.textContent = score;
+
+        // Display "Congrats!" message
+        quizQuestion.textContent = ''; // Clear question
+        quizOptions.innerHTML = ''; // Clear options
+        quizResult.innerHTML = '<span style="color:lime; font-size: 28px; font-weight: bold;">Congrats!</span>';
+        quizRetry.style.display = 'none'; // Ensure retry is hidden
+
+        // Redirect after 3 seconds
+        setTimeout(() => {
+            window.location.href = 'index.html'; // Redirect to index.html
+        }, 3000); // 3000 milliseconds = 3 seconds
+
+      } else {
+        // --- INCORRECT ANSWER ---
+        quizResult.innerHTML = `<span style="color:red">✗ Incorrect</span><br>${fact}`;
+        quizRetry.style.display = 'block'; // Show the retry button
+
+        // Add listener to the retry button to show the same question again
+        quizRetry.onclick = () => showNextQuestion(stationId);
+      }
+    }
+
+    // Update credits display
+    function updateCreditsDisplay() {
+      if (creditsDisplay) creditsDisplay.textContent = credits;
+    }
+
+    // Resume game after quiz completed - REMOVED
+
+    // Check collisions with obstacles
+    function checkObstacleCollision() {
+      if (!isGameRunning || shieldActive) return; // Skip if game paused or shield active
+
+      const playerRect = player.getBoundingClientRect();
+      const obstacles = document.querySelectorAll('.obstacle');
+
+      for (const obs of obstacles) {
+        const obsRect = obs.getBoundingClientRect();
+        // Simple AABB collision check
+        if (
+          playerRect.left < obsRect.right &&
+          playerRect.right > obsRect.left &&
+          playerRect.top < obsRect.bottom &&
+          playerRect.bottom > obsRect.top
+        ) {
+          // Collision detected!
+          obs.remove(); // Remove the collided obstacle
+          loseLife();
+          return; // Exit after one collision per check
+        }
+      }
+    }
+
+
+    // Handle life loss
+    function loseLife() {
+      // Shield check is now done in checkObstacleCollision, but double-check here is safe
+      if (shieldActive) return;
+
+      lives--;
+      hudLives.textContent = lives;
+      createExplosion(playerPos.x + player.offsetWidth / 2, playerPos.y + player.offsetHeight / 2); // Explode from center
+
+      if (lives <= 0) {
+        gameOver();
+      } else {
+        // Briefly make player invincible after hit? (Optional)
+        resetPlayer(); // Move player back to start
+      }
+    }
+
+    // Reset player position
+    function resetPlayer() {
+      playerPos = { x: 50, y: window.innerHeight / 2 };
+      player.style.left = playerPos.x + 'px';
+      player.style.top = playerPos.y + 'px';
+      player.style.transform = 'rotate(0deg)'; // Reset rotation
+      playerRotation = 0;
+    }
+
+    // Game over
+    function gameOver() {
+      isGameRunning = false;
+      clearAllIntervals(); // Stop spawning obstacles etc.
+       // Stop background music?
+      const bgMusic = document.getElementById('bg-music');
+      if (bgMusic) bgMusic.pause();
+
+      showMessage("GAME OVER<br>Score: " + score + "<br>Tap/Click to restart");
+      // Use one-time listeners for restarting
+      document.addEventListener('click', restartGame, { once: true });
+      document.addEventListener('touchstart', restartGame, { once: true });
+    }
+
+    // Show message overlay
+    function showMessage(msg) {
+      messageBox.innerHTML = msg;
+      messageBox.style.display = "block";
+    }
+
+    // Create explosion effect
+    function createExplosion(x, y) {
+      const explosion = document.createElement('div');
+      explosion.style.position = 'absolute';
+      // Center the explosion on coordinates
+      explosion.style.left = (x - 30) + 'px'; // Adjust for half width
+      explosion.style.top = (y - 30) + 'px';  // Adjust for half height
+      explosion.style.width = '60px';
+      explosion.style.height = '60px';
+      explosion.style.background = 'radial-gradient(circle, rgba(255,165,0,0.9) 0%, rgba(255,0,0,0.6) 50%, rgba(255,0,0,0) 70%)'; // Orange/Red gradient
+      explosion.style.borderRadius = '50%';
+      explosion.style.transform = 'scale(0.1)'; // Start small
+      explosion.style.transition = 'transform 0.4s cubic-bezier(0.1, 0.7, 1.0, 0.1), opacity 0.4s ease-out'; // Smoother animation
+      explosion.style.zIndex = 25; // Above obstacles, below HUD
+      gameArea.appendChild(explosion);
+
+      // Trigger animation
+      setTimeout(() => {
+        explosion.style.transform = 'scale(1.5)'; // Expand
+        explosion.style.opacity = '0'; // Fade out
+      }, 10); // Short delay to ensure transition applies
+
+      // Remove element after animation
+      setTimeout(() => {
+        if (explosion.parentNode) { // Check if still attached
+             explosion.remove();
+        }
+      }, 410); // Match transition duration
+    }
+
+    // Spawn obstacles (asteroids)
+    function spawnObstacle() {
+        if (!isGameRunning) return;
+
+        const obstacle = document.createElement('div');
+        obstacle.className = 'obstacle';
+
+        const size = Math.random() * 40 + 20; // Size 20px to 60px
+        obstacle.style.width = size + 'px';
+        obstacle.style.height = size + 'px';
+
+        // Irregular shape using clip-path
+        const shapes = [
+          `polygon(50% 0%, 80% 15%, 100% 40%, 85% 70%, 60% 100%, 40% 90%, 15% 75%, 0% 50%, 20% 20%)`,
+          `polygon(30% 0%, 70% 10%, 100% 35%, 90% 70%, 60% 100%, 20% 80%, 0% 60%, 10% 30%)`,
+          `polygon(50% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%)`,
+          `polygon(20% 0%, 80% 0%, 100% 20%, 100% 80%, 80% 100%, 20% 100%, 0% 80%, 0% 20%)`
+        ];
+        obstacle.style.clipPath = shapes[Math.floor(Math.random() * shapes.length)];
+
+        // Asteroid colors
+        const colors = ['#8B4513', '#A0522D', '#696969', '#778899', '#BC8F8F'];
+        obstacle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+
+        // Starting position from edges
+        let startX, startY;
+        const edge = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+        const margin = size * 1.5; // Ensure fully off-screen start
+
+        if (edge === 0) { // Top
+            startX = Math.random() * window.innerWidth;
+            startY = -margin;
+        } else if (edge === 1) { // Right
+            startX = window.innerWidth + margin;
+            startY = Math.random() * window.innerHeight;
+        } else if (edge === 2) { // Bottom
+            startX = Math.random() * window.innerWidth;
+            startY = window.innerHeight + margin;
+        } else { // Left
+            startX = -margin;
+            startY = Math.random() * window.innerHeight;
+        }
+        obstacle.style.left = startX + 'px';
+        obstacle.style.top = startY + 'px';
+
+        // Target position (aim towards opposite side or center-ish)
+        let targetX, targetY;
+        const aimVariance = 0.4; // How much to vary the aim from direct opposite (0 = straight, 1 = full random)
+        const centerAim = 0.3; // Chance to aim towards the center area
+
+        if (Math.random() < centerAim) {
+             // Aim towards the center viewport area
+             targetX = window.innerWidth * (0.5 + (Math.random() - 0.5) * 0.6); // Center 60% width
+             targetY = window.innerHeight * (0.5 + (Math.random() - 0.5) * 0.6); // Center 60% height
+        } else {
+            // Aim towards the opposite side with variance
+            if (edge === 0) { // From Top -> Aim Bottom
+                targetX = startX + (Math.random() - 0.5) * window.innerWidth * aimVariance;
+                targetY = window.innerHeight + margin;
+            } else if (edge === 1) { // From Right -> Aim Left
+                targetX = -margin;
+                targetY = startY + (Math.random() - 0.5) * window.innerHeight * aimVariance;
+            } else if (edge === 2) { // From Bottom -> Aim Top
+                 targetX = startX + (Math.random() - 0.5) * window.innerWidth * aimVariance;
+                 targetY = -margin;
+            } else { // From Left -> Aim Right
+                targetX = window.innerWidth + margin;
+                targetY = startY + (Math.random() - 0.5) * window.innerHeight * aimVariance;
+            }
+        }
+
+        // --- ADJUSTED SPEED ---
+        // Slower speed range (e.g., 0.3 to 0.8)
+        const speedMultiplier = Math.random() * 0.5 + 1; // Obstacle speed independent of player
+
+        // Calculate movement vector based on distance and speed multiplier
+        const deltaX = targetX - startX;
+        const deltaY = targetY - startY;
+        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+        // Normalize the vector and apply speed
+        const moveSpeed = 1.5; // Base movement pixels per frame (adjust for overall game speed feel)
+        const dx = (deltaX / distance) * speedMultiplier * moveSpeed;
+        const dy = (deltaY / distance) * speedMultiplier * moveSpeed;
+
+
+        gameArea.appendChild(obstacle);
+
+        const rotationSpeed = (Math.random() - 0.5) * 4; // Degrees per frame (-2 to 2)
+        let rotation = Math.random() * 360; // Start rotation
+        obstacle.style.transform = `rotate(${rotation}deg)`;
+
+        const interval = setInterval(() => {
+            if (!isGameRunning) {
+                // Don't clear interval here if you want obstacles to resume
+                return;
+            }
+
+            const currentLeft = parseFloat(obstacle.style.left);
+            const currentTop = parseFloat(obstacle.style.top);
+
+            // Update position
+            obstacle.style.left = (currentLeft + dx) + 'px';
+            obstacle.style.top = (currentTop + dy) + 'px';
+
+            // Update rotation
+            rotation += rotationSpeed;
+            obstacle.style.transform = `rotate(${rotation}deg)`;
+
+            // Check if obstacle is way out of bounds for removal
+             const offscreenBuffer = 100; // Pixels beyond screen edge before removing
+            if (
+                currentLeft < -offscreenBuffer ||
+                currentLeft > window.innerWidth + offscreenBuffer ||
+                currentTop < -offscreenBuffer ||
+                currentTop > window.innerHeight + offscreenBuffer
+            ) {
+                obstacle.remove();
+                clearInterval(interval);
+                // Remove interval ID from array
+                obstacleIntervals = obstacleIntervals.filter(id => id !== interval);
+            }
+            // Collision check is handled in the main game loop now for optimization
+        }, 30); // Update rate (approx 33fps for movement)
+
+        obstacleIntervals.push(interval);
+    }
+
+
+    // Spawn shield power-up
+    function spawnShield() {
+        if (!isGameRunning) return;
+        // Limit simultaneous powerups? (Optional)
+        if (document.querySelector('.shield-powerup')) return; // Only one shield at a time
+
+        const shield = document.createElement('div');
+        shield.className = 'shield-powerup'; // Use class for styling and selection
+        shield.style.position = 'absolute';
+        // Ensure spawn within visible area, avoiding edges
+        const buffer = 60;
+        shield.style.left = Math.random() * (window.innerWidth - buffer * 2) + buffer + 'px';
+        shield.style.top = Math.random() * (window.innerHeight - buffer * 2) + buffer + 'px';
+        shield.style.width = '40px';
+        shield.style.height = '40px';
+        shield.style.background = 'radial-gradient(circle, #00ffff 60%, #0066ff 100%)';
+        shield.style.borderRadius = '50%';
+        // No separate box-shadow needed if using animation class
+        shield.style.zIndex = 15; // Above stars/obstacles, below player/HUD
+        // Removed cursor: pointer; collected by collision now
+        shield.title = "Shield Power-Up";
+        gameArea.appendChild(shield);
+
+        // Remove after 8 seconds if not collected
+        setTimeout(() => {
+             if (shield.parentNode) shield.remove();
+        }, 8000);
+    }
+
+    // Activate shield effect on player
+    function activateShield() {
+        if (shieldActive) { // If already active, just reset the timer
+            clearTimeout(shieldTimeout);
+        } else {
+            shieldActive = true;
+            // Apply visual effect - using a dedicated class might be cleaner
+            player.style.boxShadow = '0 0 20px 8px #00ffff, 0 0 40px 15px #0066ff'; // Enhanced glow
+             player.style.filter = 'none'; // Temporarily remove base filter for shield glow
+        }
+
+        // Set timer to deactivate shield
+        shieldTimeout = setTimeout(() => {
+            shieldActive = false;
+            player.style.boxShadow = ''; // Remove glow
+            player.style.filter = 'drop-shadow(0 0 8px white)'; // Restore original astronaut glow
+            shieldTimeout = null;
+        }, 5000); // Shield duration: 5 seconds
+    }
+
+    // Function to spawn an extra life power-up
+    function spawnExtraLife() {
+        if (!isGameRunning || lives >= MAX_LIVES) return; // Don't spawn if max lives
+        // Limit simultaneous powerups? (Optional)
+        if (document.querySelector('.extra-life-powerup')) return; // Only one heart at a time
+
+        const heart = document.createElement('div');
+        heart.className = 'extra-life-powerup'; // Use class
+        heart.style.position = 'absolute';
+        const buffer = 60;
+        heart.style.left = Math.random() * (window.innerWidth - buffer * 2) + buffer + 'px';
+        heart.style.top = Math.random() * (window.innerHeight - buffer * 2) + buffer + 'px';
+        heart.style.width = '35px'; // Slightly smaller?
+        heart.style.height = '35px';
+        // Using a standard emoji unicode character directly in CSS content
+        heart.style.background = "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><path fill=\"%23FF69B4\" d=\"M50 88.2C34.1 74.2 20 61.4 20 45.2 20 31.1 31.1 20 45.2 20c7.6 0 14.7 3.3 19.8 8.8L50 15l-5-15C39.7 3.3 32.6 0 25 0 11.2 0 0 11.2 0 25c0 16.2 14.1 29 30 43.2L50 88.2z\" transform=\"scale(1, -1) translate(0, -90)\" transform-origin=\"center\" /></svg>') no-repeat center";
+        heart.style.background = "deeppink"; // Fallback color
+        heart.style.clipPath = "polygon(50% 100%, 95% 55%, 95% 30%, 75% 5%, 50% 20%, 25% 5%, 5% 30%, 5% 55%)"; // Heart shape
+        heart.style.zIndex = 15;
+        // Removed cursor: pointer; collected by collision now
+        heart.title = "Extra Life";
+        gameArea.appendChild(heart);
+
+        // Remove after 8 seconds if not collected
+        setTimeout(() => {
+            if (heart.parentNode) heart.remove();
+        }, 8000);
+    }
+
+
+    // Start obstacle spawner
+    function startObstacleSpawner() {
+      // Clear existing interval if any
+      obstacleIntervals.forEach(clearInterval);
+      obstacleIntervals = [];
+
+      // Spawn immediately, then set interval
+      spawnObstacle();
+      const interval = setInterval(spawnObstacle, 900); // Spawn rate (milliseconds) - Increased interval = fewer asteroids
+      obstacleIntervals.push(interval);
+    }
+
+    // Interval for spawning power-ups randomly
+    function startPowerupSpawners() {
+        // Use setTimeout for initial delay, then setInterval
+        setTimeout(() => {
+            setInterval(() => {
+                if (isGameRunning && !shieldActive && !document.querySelector('.shield-powerup')) {
+                    if (Math.random() < 0.15) { // ~15% chance every 2 seconds
+                        spawnShield();
+                    }
+                }
+            }, 2000); // Check every 2 seconds
+        }, 5000); // Initial delay for first shield check
+
+        setTimeout(() => {
+             setInterval(() => {
+                if (isGameRunning && lives < MAX_LIVES && !document.querySelector('.extra-life-powerup')) {
+                    if (Math.random() < 0.1) { // ~10% chance every 3 seconds
+                        spawnExtraLife();
+                    }
+                }
+            }, 3000); // Check every 3 seconds
+        }, 8000); // Initial delay for first life check
+    }
+
+
+    // Clear all game intervals
+    function clearAllIntervals() {
+      obstacleIntervals.forEach(clearInterval);
+      obstacleIntervals = [];
+      // NOTE: The powerup intervals created above are anonymous and not stored,
+      // so they cannot be easily cleared here. A better approach would be to
+      // store their interval IDs if precise clearing on game over/restart is needed.
+      // For now, they rely on the `isGameRunning` check to stop spawning.
+    }
+
+    // Start game timer
+    let timerInterval = null; // Keep track of the timer interval
+    function startTimer() {
+        clearInterval(timerInterval); // Clear previous timer if any
+        hudTimer.textContent = timer; // Set initial display
+        timerInterval = setInterval(() => {
+            if (!isGameRunning) {
+                // Don't clear interval, just pause decrementing
+                return;
+            }
+
+            if (timer <= 0) {
+                clearInterval(timerInterval);
+                // Only call gameOver if the game hasn't already ended (e.g., by losing lives)
+                if (isGameRunning) {
+                    gameOver();
+                }
+            } else {
+                timer--;
+                hudTimer.textContent = timer;
+            }
+        }, 1000); // Update every second
+    }
+
+    // Restart game - MODIFIED
+    function restartGame() {
+      // Clear existing obstacles and powerups
+      document.querySelectorAll('.obstacle, .shield-powerup, .extra-life-powerup').forEach(el => el.remove());
+
+      // Reset game state
+      lives = 3;
+      score = 0;
+      timer = 60; // Reset timer duration
+      credits = 0;
+      isGameRunning = true;
+      shieldActive = false; // Ensure shield is off
+      clearTimeout(shieldTimeout);
+      player.style.boxShadow = ''; // Clear shield visual effect
+      player.style.filter = 'drop-shadow(0 0 8px white)'; // Restore original astronaut glow
+
+
+      // Update HUD
+      hudLives.textContent = lives;
+      hudScore.textContent = score;
+      hudTimer.textContent = timer;
+      updateCreditsDisplay();
+
+      // Hide message & quiz
+      messageBox.style.display = "none";
+      quizContainer.style.display = "none"; // Ensure quiz is hidden
+      quizRetry.style.display = "none"; // Ensure retry button is hidden
+
+      // Reset player position
+      resetPlayer();
+
+       // Start background music again?
+      const bgMusic = document.getElementById('bg-music');
+      if (bgMusic) {
+          bgMusic.currentTime = 0; // Rewind
+          bgMusic.play().catch(e => console.error("Audio play failed on restart:", e));
+      }
+
+
+      // Restart game loops
+      clearAllIntervals();
+      startObstacleSpawner();
+      startTimer(); // Restart the timer
+      // Restart powerup spawners (as they are not cleared properly, they'll resume via isGameRunning flag)
+      // A more robust solution would explicitly restart them if they were clearable.
+    }
+
+    // Touch controls setup
+    function setupTouchControls() {
+      const joystick = document.getElementById('joystick');
+      const knob = document.getElementById('joystick-knob');
+      let joystickRect, joystickCenter, touchId = null;
+
+      function updateJoystickPosition() {
+          // Check if joystick element exists before getting bounds
+          if (!joystick) return;
+          joystickRect = joystick.getBoundingClientRect();
+          joystickCenter = {
+              x: joystickRect.left + joystickRect.width / 2,
+              y: joystickRect.top + joystickRect.height / 2
+          };
+      }
+      updateJoystickPosition(); // Initial setup
+
+      function handleTouchStart(e) {
+          // Only respond to the first touch on the joystick
+          if (touchId === null && (e.target === joystick || joystick.contains(e.target))) {
+              e.preventDefault(); // Prevent screen scrolling
+              touchId = e.changedTouches[0].identifier;
+              joystickActive = true;
+              updateJoystickPosition(); // Update bounds on touch start
+              updateJoystick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+          }
+      }
+
+      function handleTouchMove(e) {
+          if (joystickActive && touchId !== null) {
+              for (let i = 0; i < e.changedTouches.length; i++) {
+                  if (e.changedTouches[i].identifier === touchId) {
+                      e.preventDefault();
+                      updateJoystick(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+                      break; // Found the tracked touch
+                  }
+              }
+          }
+      }
+
+      function handleTouchEnd(e) {
+          if (joystickActive && touchId !== null) {
+              for (let i = 0; i < e.changedTouches.length; i++) {
+                   if (e.changedTouches[i].identifier === touchId) {
+                       joystickActive = false;
+                       touchId = null;
+                       // Reset knob to center visually
+                       if (knob) knob.style.transform = `translate(0px, 0px)`; // Check if knob exists
+                       joystickDirection = { x: 0, y: 0 }; // Stop movement
+                       break;
+                   }
+              }
+          }
+      }
+
+      function updateJoystick(touchX, touchY) {
+        if (!joystickRect || !joystickCenter || !knob) return; // Ensure elements/bounds exist
+
+        const dx = touchX - joystickCenter.x;
+        const dy = touchY - joystickCenter.y;
+        const maxKnobMove = joystickRect.width / 4; // Limit knob movement visually within joystick base
+        const distance = Math.min(Math.sqrt(dx * dx + dy * dy), maxKnobMove);
+        const angle = Math.atan2(dy, dx);
+
+        const knobX = Math.cos(angle) * distance;
+        const knobY = Math.sin(angle) * distance;
+
+        // Translate knob relative to its centered position in CSS
+        knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+
+        // Normalize direction vector based on potential movement (edge of joystick base)
+        const maxDistance = joystickRect.width / 2;
+        if (maxDistance > 0) { // Avoid division by zero
+             // Calculate direction based on actual touch position relative to center, capped at joystick edge
+             const dirX = Math.max(-maxDistance, Math.min(maxDistance, touchX - joystickCenter.x));
+             const dirY = Math.max(-maxDistance, Math.min(maxDistance, touchY - joystickCenter.y));
+
+             joystickDirection = {
+                x: dirX / maxDistance,
+                y: dirY / maxDistance
+            };
+        } else {
+             joystickDirection = { x: 0, y: 0 };
+        }
+      }
+
+      // Add listeners only if joystick exists
+      if (joystick) {
+          // Use passive: false for move to allow preventDefault
+          joystick.addEventListener('touchstart', handleTouchStart, { passive: false });
+          document.addEventListener('touchmove', handleTouchMove, { passive: false });
+          document.addEventListener('touchend', handleTouchEnd);
+          document.addEventListener('touchcancel', handleTouchEnd); // Handle cancelled touches too
+
+          // Update joystick bounds on resize/orientation change
+          window.addEventListener('resize', updateJoystickPosition);
+          window.addEventListener('orientationchange', updateJoystickPosition);
+      }
+    }
+
+    // Button/Keyboard controls setup
+    function setupButtonControls() {
+      const upBtn = document.getElementById('up');
+      const leftBtn = document.getElementById('left');
+      const rightBtn = document.getElementById('right');
+      const downBtn = document.getElementById('down');
+
+      const keys = {
+        up: false,
+        left: false,
+        right: false,
+        down: false
+      };
+
+      // Use consistent event listeners (mousedown/up for buttons, keydown/up for keyboard)
+      function handleInteractionStart(direction) { keys[direction] = true; }
+      function handleInteractionEnd(direction) { keys[direction] = false; }
+
+      // Add listeners only if buttons exist
+      if (upBtn && leftBtn && rightBtn && downBtn) {
+          // Button Listeners (Mouse)
+          upBtn.addEventListener('mousedown', () => handleInteractionStart('up'));
+          upBtn.addEventListener('mouseup', () => handleInteractionEnd('up'));
+          upBtn.addEventListener('mouseleave', () => handleInteractionEnd('up')); // Handle mouse leaving button while pressed
+
+          leftBtn.addEventListener('mousedown', () => handleInteractionStart('left'));
+          leftBtn.addEventListener('mouseup', () => handleInteractionEnd('left'));
+          leftBtn.addEventListener('mouseleave', () => handleInteractionEnd('left'));
+
+          rightBtn.addEventListener('mousedown', () => handleInteractionStart('right'));
+          rightBtn.addEventListener('mouseup', () => handleInteractionEnd('right'));
+          rightBtn.addEventListener('mouseleave', () => handleInteractionEnd('right'));
+
+          downBtn.addEventListener('mousedown', () => handleInteractionStart('down'));
+          downBtn.addEventListener('mouseup', () => handleInteractionEnd('down'));
+          downBtn.addEventListener('mouseleave', () => handleInteractionEnd('down'));
+
+          // Button Listeners (Touch - map to same logic)
+          upBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteractionStart('up'); });
+          upBtn.addEventListener('touchend', () => handleInteractionEnd('up'));
+
+          leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteractionStart('left'); });
+          leftBtn.addEventListener('touchend', () => handleInteractionEnd('left'));
+
+          rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteractionStart('right'); });
+          rightBtn.addEventListener('touchend', () => handleInteractionEnd('right'));
+
+          downBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteractionStart('down'); });
+          downBtn.addEventListener('touchend', () => handleInteractionEnd('down'));
+      }
+
+
+      // Keyboard Listeners
+      document.addEventListener('keydown', (e) => {
+        // Use switch for cleaner mapping, prevent default for arrow keys to stop scrolling
+        switch (e.key) {
+            case 'ArrowUp': case 'w': case 'W':
+                e.preventDefault(); handleInteractionStart('up'); break;
+            case 'ArrowLeft': case 'a': case 'A':
+                e.preventDefault(); handleInteractionStart('left'); break;
+            case 'ArrowRight': case 'd': case 'D':
+                e.preventDefault(); handleInteractionStart('right'); break;
+            case 'ArrowDown': case 's': case 'S':
+                e.preventDefault(); handleInteractionStart('down'); break;
+        }
+      });
+
+      document.addEventListener('keyup', (e) => {
+         switch (e.key) {
+            case 'ArrowUp': case 'w': case 'W':
+                handleInteractionEnd('up'); break;
+            case 'ArrowLeft': case 'a': case 'A':
+                handleInteractionEnd('left'); break;
+            case 'ArrowRight': case 'd': case 'D':
+                handleInteractionEnd('right'); break;
+            case 'ArrowDown': case 's': case 'S':
+                handleInteractionEnd('down'); break;
+        }
+      });
+
+      // Return the state object for the game loop to read
+      return keys;
+    }
+
+    // --- Main Game Loop ---
+    let buttonKeys = {}; // Hold the state from button/keyboard controls
+    function gameLoop() {
+        if (isGameRunning) {
+            let dx = 0, dy = 0;
+
+            if (joystickActive) {
+                // Use joystick direction, apply player speed
+                dx = joystickDirection.x * playerSpeed;
+                dy = joystickDirection.y * playerSpeed;
+            } else {
+                // Use button/keyboard state, apply player speed
+                if (buttonKeys.up) dy -= playerSpeed;
+                if (buttonKeys.down) dy += playerSpeed;
+                if (buttonKeys.left) dx -= playerSpeed;
+                if (buttonKeys.right) dx += playerSpeed;
+
+                // Normalize diagonal movement (optional, but good practice)
+                if (dx !== 0 && dy !== 0) {
+                    dx *= 0.7071; // ~1 / sqrt(2)
+                    dy *= 0.7071;
+                }
+            }
+
+            // Move player if there's input
+            if (dx !== 0 || dy !== 0) {
+                movePlayer(dx, dy);
+            }
+
+             // Check obstacle collision
+             checkObstacleCollision(); // Still check for obstacles
+
+             // Move star field background
+             moveStarField();
+        }
+
+        // Continue the loop
+        requestAnimationFrame(gameLoop);
+    }
+
+
+    // Initialize game
+    function initGame() {
+      createStarField(); // Create initial stars
+      resetPlayer(); // Set initial player position
+      startObstacleSpawner(); // Start spawning obstacles
+      startTimer(); // Start the game timer
+      startPowerupSpawners(); // Start spawning powerups
+      setupTouchControls(); // Set up joystick listener
+      buttonKeys = setupButtonControls(); // Set up button/key listeners and get state object
+      updateCreditsDisplay(); // Set initial credits display
+
+      // Start the main game loop
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start the game when page loads
+    window.addEventListener('load', initGame);
+
+    // Handle window resize - adjust player position if needed
+    window.addEventListener('resize', () => {
+        // Recalculate boundaries and potentially reposition player if out of new bounds
+        const playerWidth = player.offsetWidth;
+        const playerHeight = player.offsetHeight;
+        playerPos.x = Math.max(0, Math.min(window.innerWidth - playerWidth, playerPos.x));
+        playerPos.y = Math.max(0, Math.min(window.innerHeight - playerHeight, playerPos.y));
+        player.style.left = playerPos.x + 'px';
+        player.style.top = playerPos.y + 'px';
+
+        // Update star positions relative to new viewport height? (optional, depends on desired effect)
+        // Update joystick bounds as well (handled in touch controls setup)
+    });
+
+  </script>
+</body>
+</html>

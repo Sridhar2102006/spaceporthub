@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sample Analysis Report</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100vh; width: 100%;
+            overflow: hidden; font-family: 'Courier New', monospace;
+            background: radial-gradient(circle, #002030 5%, #000 90%); /* Dark teal */
+            color: #00ffff; display: flex; justify-content: center;
+            align-items: center; padding: 10px; box-sizing: border-box;
+        }
+
+        .container {
+            padding: clamp(15px, 2vw, 25px); border: 2px solid #00ffff; border-radius: 15px;
+            box-shadow: 0 0 25px #00ffffaa, inset 0 0 15px #00ffff33;
+            background: rgba(0, 15, 25, 0.9); backdrop-filter: blur(4px);
+            animation: fadeInReport 1s ease-out;
+            width: 90%; max-width: 1400px; height: 85vh; /* Increased height slightly */
+            text-align: center; display: flex; flex-direction: column; overflow: hidden;
+        }
+        @keyframes fadeInReport { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1 {
+            font-size: clamp(1.4em, 3vw, 2.2em); margin-top: 0; margin-bottom: 10px;
+            text-shadow: 0 0 8px #00ffff, 0 0 15px #ffffffcc; color: #ffffff;
+            border-bottom: 1px solid #00ffff55; padding-bottom: 8px; flex-shrink: 0;
+        }
+
+        #planetConfirmation {
+            font-size: clamp(0.9em, 2vw, 1.1em); line-height: 1.5; margin-bottom: 15px; flex-shrink: 0; color: #ccc;
+        }
+        #planetConfirmation strong { color: #ffff00; text-transform: uppercase; font-weight: bold;}
+
+        .main-content-area {
+            display: flex; gap: clamp(15px, 2vw, 25px); margin-top: 10px; margin-bottom: 15px;
+            width: 100%; align-items: stretch; /* Make columns equal height */ flex-grow: 1; overflow: hidden; min-height: 0;
+        }
+
+        /* --- Quiz Section (Left) --- */
+        #quizSection {
+            padding: 15px; background: rgba(0, 10, 20, 0.7); border: 1px dashed #00ffff88; border-radius: 8px;
+            flex: 1 1 45%; /* Takes up slightly less space */ display: flex; flex-direction: column; min-height: 0; /* Crucial for flex children scroll */
+        }
+        #quizSection h2 { margin-top: 0; margin-bottom: 15px; color: #fff; font-size: clamp(1.1em, 2.5vw, 1.4em); flex-shrink: 0; border-bottom: 1px solid #00ffff33; padding-bottom: 5px;}
+        #quizQuestion {
+            font-size: clamp(1em, 2.2vw, 1.2em); margin-bottom: 15px; min-height: 3em; flex-shrink: 0; color: #fff;
+            overflow-y: auto; max-height: 8em; padding-right: 5px; /* Space for scrollbar */
+        }
+         /* Custom Scrollbar for Question */
+         #quizQuestion::-webkit-scrollbar { width: 6px; }
+         #quizQuestion::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 3px; }
+         #quizQuestion::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 3px; border: 1px solid #005050; }
+
+        #quizOptions { /* Options will scroll if they overflow quizSection */
+             display: flex; flex-direction: column; align-items: center; gap: clamp(6px, 1vh, 10px);
+             margin-bottom: 10px; flex-grow: 1; overflow-y: auto; min-height: 0; padding: 5px; /* Padding for scroll comfort */
+        }
+        #quizOptions button {
+            padding: clamp(8px, 1.2vh, 10px) clamp(12px, 1.8vw, 20px); background: #001a33; color: #00ffff;
+            border: 1px solid #00ffff; border-radius: 5px; cursor: pointer; font-family: 'Courier New', monospace;
+            font-size: clamp(0.85em, 1.8vw, 1em); transition: all 0.2s; width: 95%; max-width: 400px;
+            flex-shrink: 0; /* Prevent buttons shrinking */
+        }
+        #quizOptions button:hover:not(:disabled) { background: #00ffff; color: #001a33; box-shadow: 0 0 10px #00ffff; }
+        #quizOptions button:disabled { opacity: 0.6; cursor: not-allowed; }
+        #quizOptions button.correct { background: #00cc00 !important; color: white !important; border-color: #55ff55 !important; font-weight: bold; }
+        #quizOptions button.incorrect { background: #cc0000 !important; color: white !important; border-color: #ff5555 !important; font-weight: bold; }
+        #quizResult {
+            font-weight: bold; min-height: 1.2em; font-size: clamp(0.9em, 2vw, 1.1em);
+            margin-top: auto; /* Push to bottom */ padding-top: 10px; flex-shrink: 0; transition: color 0.3s;
+        }
+
+        /* --- Sample Info Section (Right) --- */
+        #sampleInfoSection {
+            text-align: left; flex: 1 1 55%; /* Takes up slightly more space */ display: flex; flex-direction: column;
+            overflow: hidden; border: 1px solid #00ffff55; border-radius: 8px;
+            padding: 15px; background: rgba(0, 5, 10, 0.5); min-height: 0; /* Crucial for flex children scroll */
+        }
+        #sampleInfoSection h2 {
+            text-align: center; margin: 0 0 15px 0; color: #fff; font-size: clamp(1.1em, 2.5vw, 1.4em);
+            flex-shrink: 0; border-bottom: 1px solid #00ffff55; padding-bottom: 8px;
+        }
+        #sampleDataEntries { overflow-y: auto; flex-grow: 1; min-height: 0; padding-right: 10px; /* Space for scrollbar */ }
+        /* Custom Scrollbar */
+        #sampleDataEntries::-webkit-scrollbar { width: 8px; }
+        #sampleDataEntries::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.5); border-radius: 4px; }
+        #sampleDataEntries::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 4px; border: 1px solid #005050; }
+        #sampleDataEntries::-webkit-scrollbar-thumb:hover { background-color: #00ffff; }
+
+        .sample-entry {
+            background: rgba(0, 5, 10, 0.6); border: 1px solid #00ffff33; border-radius: 5px;
+            padding: 10px 15px; margin-bottom: 12px; /* Increased margin */
+        }
+        .sample-entry h3 { /* Planet Name Title */
+            margin: 0 0 8px 0; color: #ffff00; font-size: clamp(1em, 2.2vw, 1.2em);
+            border-bottom: 1px dotted #ffff0088; padding-bottom: 5px;
+        }
+        .sample-entry ul { list-style-type: square; margin: 0; padding-left: 20px; color: #00dddd; /* Brighter cyan */ }
+        .sample-entry li { margin-bottom: 5px; font-size: clamp(0.8em, 1.8vw, 1em); line-height: 1.4; }
+         .sample-entry.highlight { /* Style for the collected sample's planet */
+             border-color: #ffff00;
+             box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+              background: rgba(30, 30, 0, 0.7); /* Slightly different background when highlighted */
+         }
+
+        /* Replay Button */
+        #replayButton {
+            margin-top: 15px; padding: clamp(10px, 1.5vh, 14px) clamp(20px, 4vw, 30px);
+            font-size: clamp(1em, 2.5vw, 1.2em); background-color: #001a33; color: #00ffff;
+            border: 2px solid #00ffff; border-radius: 8px; cursor: pointer; transition: all 0.3s ease;
+            opacity: 0.5; pointer-events: none; /* Start disabled */
+            align-self: center; flex-shrink: 0; font-weight: bold;
+        }
+        #replayButton:not(:disabled) { opacity: 1; pointer-events: auto; }
+        #replayButton:hover:not(:disabled) { background-color: #00ffff; color: #001a33; transform: scale(1.05); box-shadow: 0 0 15px #00ffff; }
+
+        /* Responsive */
+         @media (max-width: 850px) {
+             .container { width: 95%; height: 90vh; }
+             .main-content-area { flex-direction: column; align-items: center; overflow-y: auto; /* Allow content area to scroll if needed */ }
+             #quizSection, #sampleInfoSection { flex-basis: auto; width: 95%; max-width: 600px; flex-grow: 0; flex-shrink: 1; min-height: 250px; /* Ensure min height when stacked */ }
+             #sampleInfoSection { margin-top: 15px; }
+             /* Ensure scrolling works correctly when stacked */
+             #quizOptions { max-height: 200px; /* Limit option height */}
+             #sampleDataEntries { max-height: 300px; } /* Limit sample data height */
+         }
+         @media (max-height: 650px) or (max-width: 450px) {
+             .container { width: 98%; height: 95vh; padding: 10px;}
+             h1 { font-size: 1.2em; margin-bottom: 5px; padding-bottom: 5px;}
+             #planetConfirmation { font-size: 0.8em; margin-bottom: 10px;}
+             #quizSection h2, #sampleInfoSection h2 { font-size: 1em; margin-bottom: 8px; padding-bottom: 5px;}
+             #quizQuestion { font-size: 0.9em; margin-bottom: 10px;}
+             #quizOptions button { font-size: 0.8em; padding: 6px 10px;}
+             .sample-entry h3 { font-size: 0.9em; }
+             .sample-entry li { font-size: 0.75em;}
+             #replayButton { font-size: 0.9em; padding: 8px 15px; margin-top: 10px;}
+             .main-content-area { gap: 10px; }
+         }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Planetary Sample Analysis Report</h1>
+        <p id="planetConfirmation">Analysis protocols executed for sample collected from: <strong style="color: #ff4444;">UNKNOWN PLANET</strong>.</p> <!-- Default Error Message -->
+
+        <div class="main-content-area">
+
+            <!-- Quiz Section -->
+            <div id="quizSection" style="display: none;"> <!-- Hidden until quiz loads -->
+                <h2>Analysis Verification Quiz</h2>
+                <p id="quizQuestion">Loading verification query...</p>
+                <div id="quizOptions"> <!-- Options added by JS --> </div>
+                <p id="quizResult"></p>
+            </div>
+
+            <!-- Sample Info Section -->
+            <div id="sampleInfoSection">
+                <h2>Planetary Sample Database</h2> <!-- Changed Title slightly -->
+                <div id="sampleDataEntries"> <!-- This inner div scrolls -->
+                    <p style="text-align:center; margin-top: 20px;">Loading database entries...</p>
+                     <!-- Sample entries added by JS -->
+                </div>
+            </div>
+
+        </div> <!-- End Main Content Area -->
+
+        <button id="replayButton" onclick="replayMission()" disabled>Go on a MISSION again!</button>
+
+    </div>
+    
+    <audio id="bg-music" src="megatron_vs_prime.mp3" autoplay loop muted></audio>
+
+    <script>
+        function enableMusicPlayback() {
+      const bgMusic = document.getElementById('bg-music');
+      if (bgMusic) {
+          bgMusic.muted = false;
+          bgMusic.play().catch(() => {});
+      }
+      window.removeEventListener('pointerdown', enableMusicPlayback);
+      window.removeEventListener('click', enableMusicPlayback);
+      window.removeEventListener('touchstart', enableMusicPlayback);
+  }
+  window.addEventListener('pointerdown', enableMusicPlayback);
+  window.addEventListener('click', enableMusicPlayback);
+  window.addEventListener('touchstart', enableMusicPlayback);
+        // --- DOM Elements ---
+        const planetConfirmation = document.getElementById('planetConfirmation');
+        const quizSection = document.getElementById('quizSection');
+        const quizQuestionElement = document.getElementById('quizQuestion');
+        const quizOptionsContainer = document.getElementById('quizOptions');
+        const quizResultElement = document.getElementById('quizResult');
+        const sampleDataContainer = document.getElementById('sampleDataEntries');
+        const replayButton = document.getElementById('replayButton');
+
+        let currentPlanetKey = null; // Stores the key like 'mars', 'moon'
+        let currentQuizData = null;
+
+        // --- Planet Sample Data (Contains potential finds for different planets) ---
+        const planetSamples = {
+            'moon': { name: "Moon", samples: ["Lunar Regolith (Fine Dust)", "Basaltic Rock Fragments", "Anorthosite (Highlands Rock)", "Trace Helium-3 Isotopes", "Minimal Water Ice (Shadowed Craters)"] },
+            'venus': { name: "Venus", samples: ["Sulfuric Acid Droplets (Atmospheric)", "High-Pressure Basaltic Rock", "Potential Metallic Surface Compounds ('Venus Snow')", "Dense CO2 Atmosphere", "Trace Sulfur Dioxide Gas"] },
+            'mars': { name: "Mars", samples: ["Iron-Oxide Rich Dust (Regolith)", "Hematite Concretions ('Blueberries')", "Evidence of Past Water Ice (Permafrost)", "Thin Atmospheric Gases (CO2, Argon, N2)", "Clay Minerals (Phyllosilicates)", "Sulfates (Jarosite, Gypsum)"] },
+            'mercury': { name: "Mercury", samples: ["Silicate Rock & Dust", "Trace Sodium/Potassium (Exosphere)", "Confirmed Water Ice (Polar Craters)", "Magnesium-Rich Minerals", "Low-Iron Surface Material", "Volcanic Deposits"] },
+            'earth': { name: "Earth", samples: ["Diverse Silicate Rocks (Granite, Basalt)", "Liquid Water (H2O)", "Nitrogen/Oxygen Atmosphere", "Organic Carbon Compounds", "Abundant Life Signatures", "Sedimentary Rocks (Limestone, Sandstone)", "Vast Ocean Samples"] },
+            'ceres': { name: "Ceres", samples: ["Water Ice Deposits", "Clay Minerals (Ammoniated)", "Carbonates (Sodium Carbonate)", "Ammonia Compounds", "Bright Spot Faculae Material (Salt)", "Dark Carbonaceous Surface Material"] },
+            'io': { name: "Io (Jupiter Moon)", samples: ["Sulfur & Sulfur Dioxide Frost", "Silicate Lava Rock (Ultra-Mafic)", "Volcanic Plume Particulates (SO2, S)", "Sodium Chloride Deposits", "Potassium Compounds", "Lack of Impact Craters"] },
+            'europa': { name: "Europa (Jupiter Moon)", samples: ["Water Ice Surface (H₂O)", "Potential Salts (MgSO₄, NaCl - from Ocean?)", "Radiation-Altered Surface Compounds (Hydrated Sulfuric Acid)", "Chaos Terrain Ice Blocks", "Possible Trace Oxygen Exosphere"] },
+            'ganymede': { name: "Ganymede (Jupiter Moon)", samples: ["Water Ice (Surface & Mantle)", "Silicate Rock Core", "Possible Salty Compounds (Brine)", "Trace Oxygen Atmosphere", "Dark Terrain (Cratered)", "Bright Terrain (Grooved - Tectonic?)", "Magnetosphere Readings"] },
+            'callisto': { name: "Callisto (Jupiter Moon)", samples: ["Ancient Water Ice", "Dark, Unidentified Rocky Material (Low Density)", "Carbon Dioxide Ice", "Heavily Cratered Surface Samples", "Potential Organic Molecules", "Possible Subsurface Ocean Evidence"] },
+            'titan': { name: "Titan (Saturn Moon)", samples: ["Dense Nitrogen Atmosphere (98%)", "Liquid Methane/Ethane (Lakes, Rivers, Rain)", "Complex Organic Molecules (Tholins)", "Water Ice Bedrock", "Benzene Crystals", "Acetonitrile Ice", "Cryovolcanic Evidence"] },
+            'jupiter': { name: "Jupiter (Orbital Scan)", samples: ["Atmospheric Hydrogen/Helium", "Ammonia Ice Clouds", "Water Ice Clouds (Deeper Layer)", "Ammonium Hydrosulfide Clouds", "Metallic Hydrogen Signatures (Inferred)", "Intense Radiation Belt Data", "Auroral Emissions Data"] },
+            'saturn': { name: "Saturn (Orbital Scan)", samples: ["Atmospheric Hydrogen/Helium", "Ammonia Ice Clouds", "Ring Particles (Dominated by Water Ice)", "Trace Hydrocarbons", "Helium Rain (Inferred)", "Hexagonal Polar Storm Data"] },
+            'uranus': { name: "Uranus (Orbital Scan)", samples: ["Atmospheric Hydrogen/Helium", "Methane Ice Clouds (Gives Blue Color)", "Ammonia/Water Ice Mantle (Inferred)", "Hydrogen Sulfide Cloud Signatures", "Faint Dark Ring System Data", "Anomalous Magnetic Field Data"] },
+            'neptune': { name: "Neptune (Orbital Scan)", samples: ["Atmospheric Hydrogen/Helium", "Methane Ice Clouds (Deeper Blue)", "Strongest Winds Recorded", "Ammonia/Water Ice Mantle (Inferred)", "Possible Nitrogen Ice Surface (Triton?)", "Faint Arc Ring System Data", "Great Dark Spot Dynamics (Historic)"] },
+            'pluto': { name: "Pluto (Dwarf Planet)", samples: ["Nitrogen Ice Plains (Sputnik Planitia)", "Methane Ice Mountains", "Carbon Monoxide Ice", "Complex Reddish Tholins", "Water Ice Bedrock 'Floating'", "Sputnik Planitia Convection Cells", "Wright Mons Cryovolcanic Material", "Thin Nitrogen Atmosphere (Variable)"] }
+        };
+
+         // --- Sample/Planet Quiz Questions ---
+         const sampleQuizzes = {
+             'default': [ // Fallback quiz
+                 { question: "What does 'regolith' generally refer to?", options: ["Solid bedrock", "A layer of loose dust and rock", "Atmospheric gas", "Liquid ocean"], answerIndex: 1 },
+                 { question: "Which gas giant is known for its prominent ring system primarily made of water ice?", options: ["Jupiter", "Neptune", "Saturn", "Uranus"], answerIndex: 2 }
+             ],
+             'moon': [
+                 { question: "The dark, flat plains on the Moon, known as Maria, are primarily composed of what type of volcanic rock?", options: ["Granite", "Sandstone", "Basalt", "Rhyolite"], answerIndex: 2 },
+                 { question: "What valuable isotope, rare on Earth but present in lunar soil, is considered for future fusion reactors?", options: ["Uranium-235", "Plutonium-239", "Deuterium", "Helium-3"], answerIndex: 3 }
+             ],
+             'mars': [
+                 { question: "The distinctive red color of Martian soil is primarily due to the presence of oxidized:", options: ["Copper", "Iron", "Sulfur", "Carbon"], answerIndex: 1 },
+                 { question: "Small, spherical mineral deposits nicknamed 'blueberries' found by Mars rovers are rich in which iron-bearing mineral?", options: ["Hematite", "Quartz", "Olivine", "Gypsum"], answerIndex: 0 }
+             ],
+             'europa': [
+                 { question: "The presence of salts like magnesium sulfate on Europa's icy surface strongly suggests:", options: ["A thick atmosphere", "Recent volcanic activity", "Interaction with a subsurface liquid water ocean", "A strong magnetic field"], answerIndex: 2 },
+                 { question: "What process is thought to cause the reddish-brown linear streaks (lineae) on Europa's surface?", options: ["Wind erosion", "Dried lava flows", "Radiation altering upwelled chemicals", "Ancient river channels"], answerIndex: 2 }
+             ],
+             'titan': [
+                 { question: "The complex organic haze particles found in Titan's atmosphere and surface, formed by UV radiation, are called:", options: ["Silicates", "Carbonates", "Isotopes", "Tholins"], answerIndex: 3 },
+                 { question: "Instead of water, what hydrocarbons form the lakes, rivers, and rain on Titan?", options: ["Ammonia & Water", "Liquid Methane & Ethane", "Sulfuric Acid & SO2", "Liquid Nitrogen & Argon"], answerIndex: 1 }
+             ],
+              'io': [
+                 { question: "Io's surface is constantly repaved by volcanic activity. What element and its compounds heavily coat the surface?", options: ["Iron & Nickel", "Silicon & Oxygen", "Sulfur & Sulfur Dioxide", "Carbon & Methane"], answerIndex: 2 },
+                 { question: "What is the primary energy source driving Io's extreme volcanism?", options: ["Solar radiation heating", "Radioactive decay in the core", "Internal heat from formation", "Tidal friction/heating from Jupiter's gravity"], answerIndex: 3 }
+              ],
+              'venus': [
+                  { question: "Venus's runaway greenhouse effect is caused by its extremely dense atmosphere, which is over 96%:", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Methane"], answerIndex: 2 },
+                  { question: "The opaque clouds completely covering Venus are primarily composed of droplets of:", options: ["Liquid Water", "Concentrated Sulfuric Acid", "Liquid Ammonia", "Liquid Methane"], answerIndex: 1 }
+              ],
+               'pluto': [
+                  { question: "The large, bright, heart-shaped feature on Pluto, dominated by nitrogen ice, is informally known as Tombaugh Regio. Its western lobe is called:", options: ["Viking Terra", "Cthulhu Macula", "Sputnik Planitia", "Wright Mons"], answerIndex: 2 },
+                  { question: "Besides nitrogen, what other ices are prominently found covering large areas of Pluto's surface?", options: ["Water and Ammonia", "Carbon Dioxide and Argon", "Methane and Carbon Monoxide", "Helium and Neon"], answerIndex: 2 }
+               ]
+             // Add more quizzes specific to other planets here!
+         };
+
+
+        // --- Initialization ---
+        window.onload = () => {
+            // Get the planet key from the minigame/landing step
+            let retrievedPlanetKey = localStorage.getItem('minigamePlanet');
+            let planetDisplayName = "UNKNOWN PLANET"; // Default display name for error/unknown state
+            let planetStatusColor = "#ff4444"; // Default error color (reddish)
+            let isValidKey = false;
+
+            // --- Validate the retrieved planet key *before* using it ---
+            if (retrievedPlanetKey && planetSamples[retrievedPlanetKey]) {
+                // Key is valid and exists in our data
+                currentPlanetKey = retrievedPlanetKey;
+                planetDisplayName = planetSamples[currentPlanetKey].name;
+                planetStatusColor = "#ffff00"; // Valid confirmation color (yellow)
+                isValidKey = true;
+                console.log(`Analysis Report: Loaded data for planet: ${planetDisplayName} (${currentPlanetKey})`);
+            } else {
+                // --- Key is missing or invalid ---
+                console.error("Analysis Report: Invalid or missing planet key from localStorage:", retrievedPlanetKey);
+                currentPlanetKey = 'unknown'; // Set consistent fallback state for logic below
+                isValidKey = false;
+
+                // Check status from previous step to provide a more informative error
+                const previousStepStatus = localStorage.getItem('sampleCollectionStatus');
+                if (previousStepStatus === 'success') {
+                    // Data lost after a successful collection is more critical
+                    displayErrorMessage("Critical Error: Planet data lost after sample collection! Cannot display report.");
+                    // Keep display name UNKNOWN and error color
+                } else {
+                    // Likely navigated here directly or previous step failed
+                    displayErrorMessage("Error: Could not determine sample origin planet. Data unavailable.");
+                    // Keep display name UNKNOWN and error color
+                }
+            }
+
+            // Update the confirmation message with the determined name and color styling
+            planetConfirmation.innerHTML = `Analysis Report For Sample Collected From: <strong style="color: ${planetStatusColor};">${planetDisplayName}</strong>.`;
+
+            // Populate UI sections based on the determined key (valid or 'unknown')
+            populateSampleInfo(currentPlanetKey); // Will highlight only if key is valid
+            loadPlanetQuiz(currentPlanetKey);   // Will handle 'unknown' state appropriately
+        };
+
+
+        // --- UI Population ---
+         function displayErrorMessage(message) {
+             // Ensure this runs *after* the initial DOM elements are available
+             if (sampleDataContainer && quizSection && quizQuestionElement && quizOptionsContainer && quizResultElement && replayButton) {
+                 sampleDataContainer.innerHTML = `<p style="color: #ff6666; text-align: center; font-weight: bold; padding: 20px;">${message}</p>`;
+                 quizSection.style.display = 'flex'; // Show quiz section to display the error state there too
+                 quizQuestionElement.textContent = "Verification Unavailable";
+                 quizOptionsContainer.innerHTML = '';
+                 quizResultElement.textContent = "Error prevents verification.";
+                 quizResultElement.style.color = "#ff6666";
+                 replayButton.disabled = false; // Allow user to return despite error
+                 console.error("Analysis Report Display Error:", message);
+             } else {
+                 // Fallback if called too early (shouldn't happen with current structure)
+                 console.error("Analysis Report Display Error (DOM not ready?):", message);
+                 alert("Error displaying report: " + message); // Basic fallback alert
+             }
+         }
+
+        function populateSampleInfo(collectedPlanetKey) {
+            sampleDataContainer.innerHTML = ''; // Clear loading/error message
+            let highlightedEntryFound = false;
+
+            for (const key in planetSamples) {
+                 if (!planetSamples.hasOwnProperty(key)) continue;
+
+                 const planetData = planetSamples[key];
+                 const entryDiv = document.createElement('div');
+                 entryDiv.classList.add('sample-entry');
+                 entryDiv.id = `sample-${key}`;
+
+                 const title = document.createElement('h3');
+                 title.textContent = planetData.name;
+                 entryDiv.appendChild(title);
+
+                 const list = document.createElement('ul');
+                 planetData.samples.forEach(sampleDesc => {
+                     const listItem = document.createElement('li');
+                     listItem.textContent = sampleDesc;
+                     list.appendChild(listItem);
+                 });
+                 entryDiv.appendChild(list);
+
+                 // Highlight the entry for the planet where the sample was collected
+                 // Only highlight if the collectedPlanetKey is valid and not 'unknown'
+                 if (key === collectedPlanetKey && collectedPlanetKey !== 'unknown') {
+                     entryDiv.classList.add('highlight');
+                     highlightedEntryFound = true;
+                      // Append normally or prepend if preferred
+                     sampleDataContainer.appendChild(entryDiv);
+                 } else {
+                     sampleDataContainer.appendChild(entryDiv);
+                 }
+            }
+
+             // Scroll the highlighted entry into view if found
+             if (highlightedEntryFound) {
+                const highlightedElement = document.getElementById(`sample-${collectedPlanetKey}`);
+                 if (highlightedElement) {
+                     // Slight delay to ensure layout is complete before scrolling
+                     setTimeout(() => {
+                         // Use 'nearest' to avoid excessive scrolling if possible
+                         highlightedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                     }, 100);
+                 }
+             } else if (collectedPlanetKey !== 'unknown') {
+                // Log only if we expected to find a key but didn't (i.e., not in the 'unknown' error state)
+                console.warn(`Could not find sample data entry for key: ${collectedPlanetKey} to highlight.`);
+             }
+        }
+
+
+        function loadPlanetQuiz(planetKey) {
+             if (planetKey === 'unknown') {
+                 // Error handling should have already called displayErrorMessage,
+                 // but we ensure the quiz section reflects the error state if somehow reached directly.
+                 if (quizSection.style.display !== 'flex') { // Avoid calling displayErrorMessage again if it already ran
+                     displayErrorMessage("Error: Cannot load verification quiz due to unknown sample origin.");
+                 }
+                 return; // Stop quiz loading
+             }
+
+            let quizArray = sampleQuizzes[planetKey];
+             let usedFallback = false;
+
+             // --- Fallback logic (Specific -> Default -> Random) ---
+            if (!quizArray || quizArray.length === 0) {
+                 console.warn(`No specific quiz for ${planetKey}. Checking fallbacks.`);
+                 quizArray = sampleQuizzes['default'];
+                 if (quizArray && quizArray.length > 0) {
+                    console.log("Using default quiz."); usedFallback = true;
+                 } else {
+                     // Only try random if default is also missing/empty
+                     console.warn("Default quiz is missing or empty. Trying random quiz.");
+                     const availableKeys = Object.keys(sampleQuizzes).filter(k => k !== 'default' && sampleQuizzes[k]?.length > 0);
+                    if (availableKeys.length > 0) {
+                        const randomKey = availableKeys[Math.floor(Math.random() * availableKeys.length)];
+                        quizArray = sampleQuizzes[randomKey];
+                        console.warn(`Using random quiz from ${randomKey}.`); usedFallback = true;
+                    } else {
+                        // Critical failure - no quizzes available at all
+                        console.error("FATAL: No quizzes defined in sampleQuizzes!");
+                        displayErrorMessage("System Error: Analysis verification module failed to load. No queries available.");
+                        return; // Stop execution if no quizzes exist
+                    }
+                 }
+             }
+
+            // --- Select and display the question ---
+            const randomIndex = Math.floor(Math.random() * quizArray.length);
+            currentQuizData = quizArray[randomIndex];
+            quizQuestionElement.innerHTML = currentQuizData.question; // Use innerHTML to allow formatting
+             if (usedFallback) {
+                // Add a subtle note if a fallback was used
+                quizQuestionElement.innerHTML += `<br><em style='font-size:0.8em; color:#aaa;'>(Standard Verification Query)</em>`;
+            }
+            quizOptionsContainer.innerHTML = ''; // Clear previous options
+            quizResultElement.textContent = ''; // Clear previous result
+            quizResultElement.style.color = '#00ffff'; // Reset result color
+
+            // Create option buttons
+            currentQuizData.options.forEach((option, index) => {
+                 const button = document.createElement('button');
+                 button.textContent = option;
+                 button.onclick = () => submitQuizAnswer(index);
+                 button.disabled = false; // Ensure buttons are enabled initially
+                 button.className = ''; // Clear any previous correct/incorrect classes
+                 quizOptionsContainer.appendChild(button);
+            });
+
+            quizSection.style.display = 'flex'; // Make quiz visible
+            replayButton.disabled = true;      // Disable replay until quiz is answered
+        }
+
+
+        function submitQuizAnswer(chosenIndex) {
+             // Prevent multiple submissions or submission if quiz data isn't loaded
+             if (!currentQuizData || replayButton.disabled === false) return;
+
+             const correctAnswerIndex = currentQuizData.answerIndex;
+             const optionButtons = quizOptionsContainer.querySelectorAll('button');
+
+             // Disable all option buttons after an answer is chosen
+             optionButtons.forEach(button => { button.disabled = true; });
+
+             if (chosenIndex === correctAnswerIndex) {
+                 quizResultElement.textContent = "Verification SUCCESSFUL! Data integrity confirmed.";
+                 quizResultElement.style.color = "#66ff66"; // Bright Green
+                 optionButtons[chosenIndex].classList.add('correct');
+             } else {
+                 quizResultElement.textContent = "Verification ANOMALY! Data inconsistency detected.";
+                 quizResultElement.style.color = "#ffcc00"; // Yellow/Orange Warning
+                 optionButtons[chosenIndex].classList.add('incorrect');
+                 // Highlight the correct answer as well if the user was wrong
+                 if (optionButtons[correctAnswerIndex]) {
+                    optionButtons[correctAnswerIndex].classList.add('correct');
+                 }
+             }
+             replayButton.disabled = false; // Enable the replay button now that the quiz is done
+         }
+
+        // --- Navigation ---
+        function replayMission() {
+             console.log("Return to Spaceport selected. Navigating to index.html...");
+             // Clear mission-specific storage items before returning
+             localStorage.removeItem('minigamePlanet');
+             localStorage.removeItem('sampleCollectionStatus'); // Clear minigame result if set
+              // Optional: Decide whether to reset other global states like fuel
+             // localStorage.removeItem('currentFuel');
+             window.location.href = 'index.html'; // Go back to start
+        }
+
+        // --- Preventative Cleanup ---
+         window.addEventListener('beforeunload', () => {
+             console.log("Analysis Report: Page unloading.");
+             // Potential future cleanup if timeouts or intervals are added
+         });
+
+    </script>
+</body>
+</html>

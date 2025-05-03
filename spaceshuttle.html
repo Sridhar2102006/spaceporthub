@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuttle Bay - Space Quiz Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #0a0a1a;
+            color: #ffffff;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 255, 0.1) 0%, transparent 20%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="white" opacity="0.7"/></svg>');
+            background-size: cover, cover, auto;
+            min-height: 100vh;
+        }
+
+        #menu-bar {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 15px 0;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            border-bottom: 1px solid #00ffff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .menu-item {
+            color: #00ffff;
+            text-decoration: none;
+            font-size: 1.2rem;
+            padding: 8px 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover {
+            background-color: #00ffff;
+            color: #000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ffff;
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .filter-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background-color: #00ffff;
+            color: #000;
+        }
+
+        .shuttle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .shuttle-card {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ffff;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+        }
+
+        .shuttle-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .shuttle-image {
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .shuttle-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ff0;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            border: 1px solid #ff0;
+        }
+
+        .shuttle-content {
+            padding: 20px;
+        }
+
+        .shuttle-name {
+            font-size: 1.5rem;
+            margin: 0 0 10px;
+            color: #00ffff;
+        }
+
+        .shuttle-price {
+            font-size: 1.2rem;
+            color: #0f0;
+            margin-bottom: 15px;
+        }
+
+        .shuttle-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+        }
+
+        .stat-icon {
+            margin-right: 8px;
+            color: #00ffff;
+            font-size: 1.2rem;
+        }
+
+        .shuttle-description {
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .select-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #00ffff;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .select-btn:hover {
+            background-color: #00bbbb;
+        }
+
+        .select-btn.disabled {
+            background-color: #555;
+            color: #aaa; /* Make text dimmer */
+            cursor: not-allowed;
+        }
+
+        .special-feature {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .fuel-bar {
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .fuel-level {
+            height: 100%;
+            background: linear-gradient(to right, #f00, #ff0, #0f0);
+            border-radius: 5px;
+        }
+
+        .comparison-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background-color: #00ffff;
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+            z-index: 10;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .shuttle-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Menu Bar -->
+    <div id="menu-bar">
+        <a href="index.html" class="menu-item">Home</a>
+        <a href="about.html" class="menu-item">About</a>
+        <a href="#" class="menu-item">Contact Us</a>
+    </div>
+
+    <div class="container">
+        <h1>Shuttle Bay</h1>
+
+        <div class="filter-controls">
+            <!-- Simplified onclick: pass 'this' (the button element itself) -->
+            <button class="filter-btn active" onclick="filterShuttles('all', this)">All Shuttles</button>
+            <button class="filter-btn" onclick="filterShuttles('starter', this)">Starter</button>
+            <button class="filter-btn" onclick="filterShuttles('advanced', this)">Advanced</button>
+            <button class="filter-btn" onclick="filterShuttles('premium', this)">Premium</button>
+            <button class="filter-btn" onclick="filterShuttles('special', this)">Special</button>
+        </div>
+
+        <!-- Ensure this ID is correct -->
+        <div class="shuttle-grid" id="shuttleGrid">
+            <!-- Shuttle cards will be inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <button class="comparison-btn" onclick="showComparison()">Compare Selected</button>
+    <audio id="bg-music" src="transformers-uprising-286094.mp3" autoplay loop muted></audio>
+
+    <script>
+        function enableMusicPlayback() {
+            const bgMusic = document.getElementById('bg-music');
+            if (bgMusic && bgMusic.muted) { // Check if muted before playing
+                bgMusic.muted = false;
+                bgMusic.play().catch(error => console.error("Audio play failed:", error)); // Catch potential errors
+            }
+            // Remove listeners after first interaction
+            window.removeEventListener('pointerdown', enableMusicPlayback);
+            window.removeEventListener('click', enableMusicPlayback);
+            window.removeEventListener('touchstart', enableMusicPlayback);
+        }
+        // Add listeners for user interaction to enable audio
+        window.addEventListener('pointerdown', enableMusicPlayback, { once: true }); // Use {once: true} if you only need one interaction
+        window.addEventListener('click', enableMusicPlayback, { once: true });
+        window.addEventListener('touchstart', enableMusicPlayback, { once: true });
+
+
+        // Shuttle Data
+        const shuttles = [
+             {
+                id: "orbiter_basic",
+                name: "Starter Orbiter",
+                type: "starter",
+                price: 0,
+                fuelCapacity: 100,
+                speed: 1,
+                efficiency: 1.0,
+                cargo: 5,
+                range: "Low Orbit",
+                description: "A basic orbital shuttle for initial missions. Good for learning docking and short trips.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Starter+Orbiter')",
+                unlocked: true
+            },
+            {
+                id: "discovery_mk1",
+                name: "Discovery Mk1",
+                type: "advanced",
+                price: 50,
+                fuelCapacity: 150,
+                speed: 1.2,
+                efficiency: 0.8,
+                cargo: 15,
+                range: "High Orbit",
+                description: "An upgraded orbiter with better fuel efficiency and cargo capacity for station supply runs.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Discovery+Mk1')",
+                unlocked: false,
+                badge: "Workhorse"
+            },
+            {
+                id: "explorer_shuttle",
+                name: "Deep Orbit Explorer",
+                type: "advanced",
+                price: 100,
+                fuelCapacity: 200,
+                speed: 1.1,
+                efficiency: 0.7,
+                cargo: 10,
+                range: "Geo-Sync",
+                description: "Designed for extended orbital missions and satellite deployment. Features improved life support.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Explorer+Shuttle')",
+                unlocked: false,
+                special: "Science Bay"
+            },
+            {
+                id: "cargo_hauler_xt",
+                name: "Cargo Hauler XT",
+                type: "premium",
+                price: 250,
+                fuelCapacity: 180,
+                speed: 0.8,
+                efficiency: 0.9,
+                cargo: 50,
+                range: "Station Rendezvous",
+                description: "Massive payload capacity for transporting large modules or resources between stations.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Cargo+Hauler+XT')",
+                unlocked: false,
+                badge: "Max Cargo",
+                special: "Robotic Arm"
+            },
+            {
+                id: "atlantis_ii",
+                name: "Atlantis II",
+                type: "premium",
+                price: 300,
+                fuelCapacity: 220,
+                speed: 1.5,
+                efficiency: 0.6,
+                cargo: 20,
+                range: "Lunar Orbit Capable",
+                description: "Advanced shuttle capable of reaching lunar orbit. Balanced speed and payload.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Atlantis+II')",
+                unlocked: false,
+                special: "Extended Mission Module"
+            },
+            {
+                id: "stealth_orbiter",
+                name: "Shadow Orbiter",
+                type: "special",
+                price: 400,
+                fuelCapacity: 120,
+                speed: 1.8,
+                efficiency: 0.5,
+                cargo: 8,
+                range: "High Orbit",
+                description: "Features radar-absorbent materials and low heat signature for clandestine orbital operations.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Shadow+Orbiter')",
+                unlocked: false,
+                special: "Stealth Systems"
+            },
+            {
+                id: "endeavour_heavy",
+                name: "Endeavour Heavy",
+                type: "special",
+                price: 500,
+                fuelCapacity: 250,
+                speed: 1.3,
+                efficiency: 0.75,
+                cargo: 35,
+                range: "Deep Space Orbit",
+                description: "A heavily modified shuttle for long-duration deep space orbital missions. Reinforced structure.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Endeavour+Heavy')",
+                unlocked: false,
+                special: "Reinforced Hull"
+            },
+             {
+                id: "columbia_ng",
+                name: "Columbia NG",
+                type: "advanced",
+                price: 180,
+                fuelCapacity: 190,
+                speed: 1.4,
+                efficiency: 0.7,
+                cargo: 18,
+                range: "High Orbit",
+                description: "Next-generation orbiter focused on crew comfort and mission versatility.",
+                image: "url('https://via.placeholder.com/350x200/222/00ffff?text=Columbia+NG')",
+                unlocked: false,
+                badge: "Versatile"
+            },
+            {
+                id: "challenger_x",
+                name: "Challenger-X",
+                type: "premium",
+                price: 400,
+                fuelCapacity: 160,
+                speed: 2.0,
+                efficiency: 0.4,
+                cargo: 12,
+                range: "Lunar Orbit Capable",
+                description: "High-performance shuttle with powerful maneuvering thrusters for rapid orbital changes.",
+                image: "url('https://via.placeholder.com/350x200/111/ff00ff?text=Challenger-X')",
+                unlocked: false,
+                badge: "High Agility",
+                special: "Boost Thrusters"
+            }
+            // Add more shuttles if needed
+        ];
+
+        // Player data
+        const playerData = {
+            credits: 150,
+            unlockedShuttles: ["orbiter_basic"]
+        };
+
+        // Keep track of the currently selected filter
+        let currentFilter = 'all';
+
+        // Initialize the page
+        function init() {
+            console.log("Initializing Shuttle Bay..."); // Debug log
+            renderShuttles(currentFilter);
+             // Ensure initial active state is correct on the 'All Shuttles' button
+             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+             // Find the 'All' button specifically, rather than just the first one
+             const allButton = Array.from(document.querySelectorAll('.filter-btn')).find(btn => btn.getAttribute('onclick').includes("filterShuttles('all'"));
+             if (allButton) {
+                 allButton.classList.add('active');
+             } else {
+                console.error("Could not find the 'All Shuttles' filter button to set initial active state.");
+             }
+        }
+
+        // Render shuttles based on filter
+        function renderShuttles(filter = 'all') {
+            console.log(`Rendering shuttles with filter: ${filter}`); // Debug log
+            const shuttleGrid = document.getElementById('shuttleGrid');
+
+            // Check if grid element exists
+            if (!shuttleGrid) {
+                console.error("Error: Could not find element with ID 'shuttleGrid'.");
+                return; // Stop execution if grid isn't found
+            }
+
+            shuttleGrid.innerHTML = ''; // Clear existing content
+
+            const filteredShuttles = shuttles.filter(shuttle => filter === 'all' || shuttle.type === filter);
+
+            console.log(`Found ${filteredShuttles.length} shuttles for this filter.`); // Debug log
+
+            if (filteredShuttles.length === 0 && filter !== 'all') {
+                shuttleGrid.innerHTML = `<p style="grid-column: 1 / -1; text-align: center;">No shuttles match the '${filter}' filter.</p>`; // Message if filter yields no results
+            }
+
+
+            filteredShuttles.forEach(shuttle => {
+                const isUnlocked = playerData.unlockedShuttles.includes(shuttle.id);
+                const canAfford = playerData.credits >= shuttle.price;
+
+                const shuttleCard = document.createElement('div');
+                shuttleCard.className = 'shuttle-card';
+
+                // Determine button state and text
+                let buttonHTML;
+                if (isUnlocked) {
+                    buttonHTML = `<button class="select-btn" onclick="selectShuttle('${shuttle.id}')">SELECT</button>`;
+                } else if (canAfford) {
+                    buttonHTML = `<button class="select-btn" onclick="unlockShuttle('${shuttle.id}')">UNLOCK FOR ${shuttle.price} CREDITS</button>`;
+                } else {
+                    buttonHTML = `<button class="select-btn disabled">INSUFFICIENT CREDITS (${shuttle.price})</button>`; // Make it clear why it's disabled
+                }
+
+
+                shuttleCard.innerHTML = `
+                    <div class="shuttle-image" style="background-image: ${shuttle.image}">
+                        ${shuttle.special ? `<div class="special-feature">${shuttle.special}</div>` : ''}
+                        ${shuttle.badge ? `<div class="shuttle-badge">${shuttle.badge}</div>` : ''}
+                    </div>
+                    <div class="shuttle-content">
+                        <h3 class="shuttle-name">${shuttle.name}</h3>
+                        <div class="shuttle-price">${shuttle.price > 0 ? `${shuttle.price} Credits` : 'FREE'}</div>
+
+                        <div class="shuttle-stats">
+                            <div class="stat">
+                                <span class="stat-icon">⚡</span>
+                                <span>Speed: ${shuttle.speed}x</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-icon">⛽</span>
+                                <span>Propellant: ${shuttle.fuelCapacity}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-icon">📦</span>
+                                <span>Payload: ${shuttle.cargo} units</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-icon">🌍</span>
+                                <span>Orbit: ${shuttle.range}</span>
+                            </div>
+                        </div>
+
+                        <div class="fuel-bar">
+                            <div class="fuel-level" style="width: ${shuttle.efficiency * 100}%"></div>
+                        </div>
+                        <div style="text-align: center; font-size: 0.8rem; margin-bottom: 10px;">
+                            Efficiency: ${Math.round(shuttle.efficiency * 100)}%
+                        </div>
+
+                        <p class="shuttle-description">${shuttle.description}</p>
+
+                        ${buttonHTML} 
+                    </div>
+                `;
+                 console.log(`Appending card for: ${shuttle.name}`); // Debug log
+                shuttleGrid.appendChild(shuttleCard);
+            });
+        }
+
+        // Filter shuttles by type
+        // Now accepts the clicked button element as the second argument
+        function filterShuttles(type, clickedButton) {
+            console.log(`Filter button clicked. Type: ${type}`); // Debug log
+            currentFilter = type; // Update the global filter state
+
+            // Remove 'active' from all buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add 'active' to the clicked button
+            if (clickedButton) {
+                clickedButton.classList.add('active');
+            } else {
+                console.warn("filterShuttles called without a button element."); // Warn if button wasn't passed
+            }
+
+
+            renderShuttles(currentFilter); // Re-render with the new filter
+        }
+
+        // Select a shuttle
+        function selectShuttle(shuttleId) {
+            const selected = shuttles.find(s => s.id === shuttleId);
+            if (selected) {
+                alert(`Selected ${selected.name}`);
+                // Add logic here: save selection, update game state, maybe navigate away
+                // e.g., playerData.currentShuttleId = shuttleId;
+                // window.location.href = 'gameplay.html';
+            } else {
+                console.error(`Could not find shuttle with ID: ${shuttleId}`);
+            }
+        }
+
+        // Unlock a shuttle
+        function unlockShuttle(shuttleId) {
+             const shuttleToUnlock = shuttles.find(s => s.id === shuttleId);
+             if (!shuttleToUnlock) {
+                 console.error(`Could not find shuttle to unlock with ID: ${shuttleId}`);
+                 return;
+             }
+
+             if (playerData.credits >= shuttleToUnlock.price) {
+                 playerData.credits -= shuttleToUnlock.price;
+                 playerData.unlockedShuttles.push(shuttleId);
+                 console.log(`Unlocked ${shuttleToUnlock.name}. Unlocked list:`, playerData.unlockedShuttles); // Debug log
+                 alert(`Unlocked ${shuttleToUnlock.name}! Remaining Credits: ${playerData.credits}`);
+                 // Update credit display if you have one on the page
+                 // document.getElementById('creditsDisplay').textContent = playerData.credits;
+                 renderShuttles(currentFilter); // Re-render the list with the current filter to update button states
+             } else {
+                 alert("Error: Not enough credits."); // Should not happen if button logic is correct, but good failsafe
+             }
+        }
+
+
+        // Show comparison of selected shuttles (Placeholder)
+        function showComparison() {
+            alert('Comparison feature not yet implemented. Would show side-by-side stats.');
+            // Future implementation:
+            // 1. Add checkboxes to shuttle cards to mark for comparison.
+            // 2. Track selected shuttle IDs in an array.
+            // 3. When button clicked, get data for selected IDs.
+            // 4. Display data in a modal or separate section.
+        }
+
+        // Initialize the page when the DOM is fully loaded and ready
+        window.onload = init;
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Anorthosite Analysis</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --light: #ecf0f1;
+            --dark: #2c3e50;
+            --danger: #e74c3c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        h1 {
+            color: var(--primary);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--secondary);
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .model-container {
+            position: relative;
+            height: 500px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .model-container:hover {
+            transform: translateY(-5px);
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            background-color: var(--light);
+        }
+
+        .info-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background-color: var(--accent);
+        }
+
+        .tab-container {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            border-bottom-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .tab:hover:not(.active) {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        ul {
+            list-style-position: inside;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 1px dotted var(--accent);
+        }
+
+        .danger {
+            color: var(--danger);
+            font-weight: 500;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            margin-top: 1rem;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+        }
+
+        .property {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .property:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .property-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .property-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 0.75rem;
+            color: var(--accent);
+        }
+
+        .interactive-controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .ar-button {
+            background-color: #4285f4 !important;
+            color: white !important;
+            border: none !important;
+            padding: 10px 20px !important;
+            border-radius: 4px !important;
+            font-family: inherit !important;
+            cursor: pointer !important;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            animation: fadeIn 0.3s;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 700px;
+            box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .close-modal:hover {
+            color: #333;
+        }
+
+        .modal-title {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .modal-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 20% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lunar Anorthosite Analysis</h1>
+            <p class="subtitle">Interactive 3D Visualization of Moon Highlands Rock</p>
+        </header>
+
+        <div class="main-content">
+            <div class="model-container">
+                <model-viewer 
+                    src="anorthositemodel.glb"
+                    alt="3D model of lunar anorthosite rock"
+                    auto-rotate
+                    camera-controls
+                    ar
+                    environment-image="neutral"
+                    shadow-intensity="1.5"
+                    exposure="0.8">
+                    <button slot="ar-button" class="ar-button">
+                        View in AR
+                    </button>
+                </model-viewer>
+            </div>
+
+            <div class="info-panel">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="properties">Properties</div>
+                    <div class="tab" data-tab="formation">Formation</div>
+                    <div class="tab" data-tab="significance">Significance</div>
+                </div>
+
+                <div class="tab-content active" id="properties">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🔬</span>
+                            <h3>Mineral Composition</h3>
+                        </div>
+                        <ul>
+                            <li>Primarily <span class="highlight" onclick="openModal('plagioclase')">plagioclase feldspar</span> (90-95%)</li>
+                            <li>Minor <span class="highlight" onclick="openModal('pyroxene')">pyroxene</span> and <span class="highlight" onclick="openModal('olivine')">olivine</span> content</li>
+                            <li>High <span class="highlight" onclick="openModal('aluminum')">aluminum</span> content (15-20%)</li>
+                            <li>Low iron content compared to mare basalts</li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">📏</span>
+                            <h3>Physical Characteristics</h3>
+                        </div>
+                        <ul>
+                            <li>Light-colored (appears white to gray)</li>
+                            <li>Coarse-grained crystalline structure</li>
+                            <li>Density: ~2.9 g/cm³</li>
+                            <li>Reflects about 40-50% of sunlight (high albedo)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="formation">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🌌</span>
+                            <h3>Origin Theory</h3>
+                        </div>
+                        <ul>
+                            <li>Formed during the <span class="highlight" onclick="openModal('magma-ocean')">lunar magma ocean</span> period</li>
+                            <li>Floatation of low-density plagioclase crystals</li>
+                            <li>Ancient crustal material (4.3-4.5 billion years old)</li>
+                            <li>Primarily found in lunar highlands</li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">💥</span>
+                            <h3>Impact History</h3>
+                        </div>
+                        <ul>
+                            <li>Heavily cratered due to ancient bombardment</li>
+                            <li>Brecciated varieties common from impacts</li>
+                            <li>Source of many lunar meteorites found on Earth</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="significance">
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🧪</span>
+                            <h3>Scientific Value</h3>
+                        </div>
+                        <ul>
+                            <li>Key to understanding early lunar crust formation</li>
+                            <li>Contains clues about the Moon's original composition</li>
+                            <li>Helps date the lunar magma ocean crystallization</li>
+                        </ul>
+                    </div>
+
+                    <div class="property">
+                        <div class="property-title">
+                            <span class="property-icon">🚀</span>
+                            <h3>Resource Potential</h3>
+                        </div>
+                        <ul>
+                            <li>Potential source of aluminum for lunar construction</li>
+                            <li>Oxygen extraction through reduction processes</li>
+                            <li>Possible water content in associated minerals</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="interactive-controls">
+                    <button class="btn" id="rotate-btn">Toggle Rotation</button>
+                    <button class="btn btn-outline" id="sample-btn">View Apollo Samples</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Popups -->
+    <div id="plagioclase" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('plagioclase')">&times;</span>
+            <h3 class="modal-title">Plagioclase Feldspar</h3>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Plagioclase_feldspar.jpg/800px-Plagioclase_feldspar.jpg" alt="Plagioclase Feldspar" class="modal-image">
+            <p>Plagioclase is a series of tectosilicate minerals within the feldspar group. In lunar anorthosite, it's primarily calcium-rich (anorthite). These minerals formed as the lunar magma ocean cooled, with the less dense plagioclase crystals floating to form the Moon's primordial crust.</p>
+            <p><strong>Chemical Formula:</strong> CaAl₂Si₂O₈ (anorthite endmember)</p>
+            <p><strong>Key Properties:</strong> Triclinic crystal system, hardness of 6-6.5, white/gray color with vitreous luster.</p>
+        </div>
+    </div>
+
+    <div id="magma-ocean" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('magma-ocean')">&times;</span>
+            <h3 class="modal-title">Lunar Magma Ocean</h3>
+            <img src="https://www.lpi.usra.edu/science/treiman/lunar101/images/magmaocean.jpg" alt="Lunar Magma Ocean" class="modal-image">
+            <p>The lunar magma ocean hypothesis proposes that shortly after the Moon's formation (about 4.5 billion years ago), the entire Moon was molten to a depth of several hundred kilometers. As this magma ocean cooled, minerals crystallized in a specific sequence:</p>
+            <ol>
+                <li>Dense minerals (olivine and pyroxene) sank</li>
+                <li>Less dense plagioclase floated upward</li>
+                <li>Formed the anorthositic lunar crust</li>
+            </ol>
+            <p>This process explains the predominance of anorthosite in the lunar highlands.</p>
+        </div>
+    </div>
+
+    <!-- Add more modals for other highlighted terms -->
+
+    <script>
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab and corresponding content
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Model viewer controls
+        const modelViewer = document.querySelector('model-viewer');
+        const rotateBtn = document.getElementById('rotate-btn');
+
+        rotateBtn.addEventListener('click', () => {
+            if (modelViewer.getAttribute('auto-rotate') === '') {
+                modelViewer.removeAttribute('auto-rotate');
+                rotateBtn.textContent = 'Start Rotation';
+            } else {
+                modelViewer.setAttribute('auto-rotate', '');
+                rotateBtn.textContent = 'Stop Rotation';
+            }
+        });
+
+        // Sample button functionality
+        const sampleBtn = document.getElementById('sample-btn');
+        sampleBtn.addEventListener('click', () => {
+            openModal('apollo-samples');
+        });
+
+        // Modal functions
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Prevent scrolling
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto'; // Re-enable scrolling
+        }
+
+        // Close modal when clicking outside content
+        window.onclick = function(event) {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lunar Basalt Analysis - Pop Art Edition</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Pop Art Style Palette */
+        :root {
+            --pop-pink: #FF007F; /* Hot Pink */
+            --pop-blue: #00A5FF; /* Bright Blue */
+            --pop-yellow: #FFEB3B; /* Bright Yellow */
+            --pop-black: #1A1A1A; /* Off-Black */
+            --pop-white: #FFFFFF;
+            --pop-light-bg: #F8F8F8; /* Very light gray background */
+            --pop-dark-text: #1A1A1A;
+
+             /* Dotted Background */
+            --dot-color: rgba(0, 0, 0, 0.1); /* Light dots */
+            --dot-size: 2px;
+            --dot-space: 15px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            line-height: 1.7;
+            color: var(--pop-dark-text);
+            background-color: var(--pop-light-bg);
+            padding-bottom: 3rem; /* Space at bottom */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 4px solid var(--pop-black);
+        }
+
+        h1 {
+            color: var(--pop-pink);
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px var(--pop-blue);
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            color: var(--pop-black);
+            font-size: 1.3rem;
+            font-weight: 400;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem; /* Increased gap */
+            margin-top: 2rem;
+        }
+
+        .model-container {
+            position: relative;
+            height: 550px; /* Slightly taller */
+            border: 4px solid var(--pop-black);
+            box-shadow: 8px 8px 0px var(--pop-blue); /* Hard shadow effect */
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+        }
+
+        .model-container:hover {
+           /* Slightly more dynamic hover */
+            transform: translate(-3px, -3px);
+            box-shadow: 12px 12px 0px var(--pop-pink);
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            background-color: var(--pop-light-bg); /* Use light background */
+            --progress-bar-color: var(--pop-pink);
+            --progress-mask: var(--pop-light-bg);
+        }
+
+        .info-panel {
+            background-color: var(--pop-white);
+             /* Subtle Dot Pattern Background */
+             background-image: radial-gradient(var(--dot-color) var(--dot-size), transparent var(--dot-size));
+             background-size: var(--dot-space) var(--dot-space);
+             background-position: center center;
+
+            padding: 2.5rem; /* Increased padding */
+            border: 4px solid var(--pop-black);
+            box-shadow: 8px 8px 0px var(--pop-pink); /* Hard shadow effect */
+            position: relative; /* Needed for pseudo-elements if any */
+            transition: box-shadow 0.2s ease-out;
+        }
+         .info-panel:hover {
+              box-shadow: 10px 10px 0px var(--pop-blue);
+         }
+
+
+        .tab-container {
+            display: flex;
+            border-bottom: 4px solid var(--pop-black);
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 0.8rem 1.8rem;
+            cursor: pointer;
+            border: 4px solid var(--pop-black);
+            border-bottom: none; /* Remove bottom border here */
+            background-color: var(--pop-light-bg);
+            color: var(--pop-dark-text);
+            font-weight: 600;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            margin-right: -4px; /* Overlap borders */
+             margin-bottom: -4px; /* Align with container bottom border */
+             position: relative; /* For z-index */
+             z-index: 1;
+        }
+
+        .tab.active {
+            background-color: var(--pop-yellow);
+            color: var(--pop-black);
+            border-color: var(--pop-black);
+            border-bottom: 4px solid var(--pop-yellow); /* Hide container border */
+            position: relative;
+            z-index: 2; /* Bring active tab forward */
+        }
+
+        .tab:hover:not(.active) {
+            background-color: var(--pop-blue);
+            color: var(--pop-white);
+        }
+
+        .tab-content {
+            display: none;
+            animation: popIn 0.4s ease-out;
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        h3 {
+            color: var(--pop-black);
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            border-bottom: 3px dashed var(--pop-pink);
+            padding-bottom: 0.5rem;
+            display: inline-block; /* Fit border to text */
+        }
+
+        ul {
+            list-style: none; /* Remove default bullets */
+            padding-left: 0;
+            margin-bottom: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.8rem;
+            position: relative;
+            padding-left: 1.8rem; /* Space for custom bullet */
+        }
+
+        li::before {
+            content: '✦'; /* Star bullet */
+            position: absolute;
+            left: 0;
+            top: 2px;
+            color: var(--pop-blue);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .highlight {
+             background-color: var(--pop-yellow); /* Highlighter effect */
+             padding: 0.1em 0.3em;
+             font-weight: 600;
+             cursor: pointer;
+             color: var(--pop-black);
+             transition: background-color 0.2s;
+             border-bottom: none; /* Remove dotted line */
+         }
+
+        .highlight:hover {
+            background-color: var(--pop-pink);
+            color: var(--pop-white);
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 2rem;
+            background-color: var(--pop-pink);
+            color: var(--pop-white);
+            border: 3px solid var(--pop-black);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            margin-top: 1rem;
+            text-transform: uppercase;
+            box-shadow: 4px 4px 0px var(--pop-black); /* Button shadow */
+        }
+
+        .btn:hover {
+            background-color: var(--pop-blue);
+             box-shadow: 6px 6px 0px var(--pop-black);
+             transform: translate(-2px, -2px);
+         }
+         .btn:active {
+            transform: translate(2px, 2px);
+             box-shadow: 1px 1px 0px var(--pop-black);
+         }
+
+
+        .btn-outline {
+            background-color: var(--pop-white);
+            border: 3px solid var(--pop-black);
+            color: var(--pop-black);
+            box-shadow: 4px 4px 0px var(--pop-black);
+        }
+
+        .btn-outline:hover {
+            background-color: var(--pop-yellow);
+            color: var(--pop-black);
+            box-shadow: 6px 6px 0px var(--pop-black);
+             transform: translate(-2px, -2px);
+        }
+         .btn-outline:active {
+             transform: translate(2px, 2px);
+             box-shadow: 1px 1px 0px var(--pop-black);
+         }
+
+
+        .property {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px dotted var(--pop-black);
+        }
+
+        .property:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .property-title {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .property-icon {
+            width: 30px; /* Larger icon */
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: var(--pop-black);
+            font-size: 1.8em; /* Larger icon size */
+             border: 3px solid var(--pop-black);
+             background-color: var(--pop-yellow);
+             border-radius: 50%; /* Circular icons */
+         }
+
+        .interactive-controls {
+            display: flex;
+            gap: 1.5rem; /* More gap */
+            margin-top: 2rem;
+            flex-wrap: wrap; /* Allow wrapping */
+        }
+
+        .ar-button {
+             /* Style AR button similar to others */
+             background-color: var(--pop-blue) !important;
+             color: var(--pop-white) !important;
+             border: 3px solid var(--pop-black) !important;
+             padding: 10px 20px !important;
+             font-family: 'Poppins', sans-serif !important;
+             cursor: pointer !important;
+             font-size: 1rem !important;
+             font-weight: 600 !important;
+             transition: all 0.2s ease !important;
+             text-transform: uppercase !important;
+             box-shadow: 4px 4px 0px var(--pop-black) !important;
+         }
+         .ar-button:hover {
+              background-color: var(--pop-pink) !important;
+              box-shadow: 6px 6px 0px var(--pop-black) !important;
+              transform: translate(-2px, -2px) !important;
+          }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.7); /* Darker overlay */
+            animation: popIn 0.3s;
+        }
+
+        .modal-content {
+            background-color: var(--pop-white);
+            margin: 8% auto; /* Adjusted margin */
+            padding: 2.5rem;
+            border: 5px solid var(--pop-black);
+            width: 90%;
+            max-width: 750px;
+            box-shadow: 10px 10px 0px var(--pop-pink);
+            position: relative;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--pop-white);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            background-color: var(--pop-pink);
+            border: 3px solid var(--pop-black);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+             transition: all 0.2s ease;
+        }
+
+        .close-modal:hover {
+            background-color: var(--pop-blue);
+            transform: rotate(90deg) scale(1.1);
+        }
+
+        .modal-title {
+            color: var(--pop-black);
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            font-weight: 700;
+             border-left: 8px solid var(--pop-blue);
+             padding-left: 1rem;
+         }
+
+        .modal-image {
+            width: 100%;
+            max-height: 350px;
+            object-fit: contain;
+            margin: 1.5rem 0;
+            border: 3px solid var(--pop-black);
+            background-color: var(--pop-light-bg);
+        }
+
+        /* Responsive Adjustments */
+        @media (max-width: 992px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+             .model-container {
+                 height: 450px; /* Adjust height */
+             }
+        }
+        
+        @media (max-width: 768px) {
+             h1 { font-size: 2.5rem; }
+             .subtitle { font-size: 1.1rem; }
+            .modal-content { width: 95%; margin: 15% auto; }
+            .tab { padding: 0.6rem 1.2rem; }
+            .btn, .btn-outline, .ar-button { padding: 0.7rem 1.5rem; font-size: 0.9rem; }
+        }
+        @media (max-width: 480px) {
+            h1 { font-size: 2rem; }
+             .subtitle { font-size: 1rem; }
+            .container { padding: 1rem; }
+             .main-content { gap: 2rem; }
+             .info-panel, .modal-content { padding: 1.5rem; }
+             .tab-container { flex-wrap: wrap; } /* Allow tabs to wrap */
+             .tab { flex-grow: 1; text-align: center; margin-right: 0; } /* Make tabs fill width on wrap */
+         }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lunar Basalt Blast!</h1>
+            <p class="subtitle">3D Rock Viewer - Pop Art Style</p>
+        </header>
+
+        <div class="main-content">
+            <div class="model-container">
+                <!-- == CORRECTED model-viewer TAG == -->
+                <model-viewer
+                    src="rock_-_basalt.glb" <!-- IMPORTANT: Make sure this path is correct! -->
+                    alt="3D model of a lunar basalt fragment"
+                    auto-rotate
+                    camera-controls <!-- This enables mouse rotation/zoom/pan -->
+                    ar
+                    ios-src="rock_-_basalt.usdz" <!-- Optional: Add if you have a USDZ file -->
+                    environment-image="neutral"
+                    shadow-intensity="1.0"
+                    exposure="1.0">
+                    <!-- AR Button placed correctly BETWEEN tags -->
+                    <button slot="ar-button" class="ar-button">
+                        View in AR!
+                    </button>
+                </model-viewer>
+                <!-- ================================ -->
+            </div>
+
+            <div class="info-panel">
+                <div class="tab-container">
+                    <div class="tab active" data-tab="properties">Properties</div>
+                    <div class="tab" data-tab="formation">Formation</div>
+                    <div class="tab" data-tab="significance">Significance</div>
+                </div>
+
+                <!-- Tab Content (unchanged logic, styled differently) -->
+                <div class="tab-content active" id="properties">
+                     <div class="property">
+                         <div class="property-title">
+                             <span class="property-icon">🔬</span>
+                             <h3>Composition Breakdown</h3>
+                         </div>
+                         <ul>
+                            <li><span class="highlight" onclick="openModal('pyroxene')">Pyroxene</span> Pow! (~50-60%)</li>
+                            <li><span class="highlight" onclick="openModal('plagioclase')">Plagioclase</span> Action! (~20-30%)</li>
+                             <li><span class="highlight" onclick="openModal('ilmenite')">Ilmenite</span> Zing! (FeTiO₃, 5-15%)</li>
+                             <li><span class="highlight" onclick="openModal('olivine')">Olivine</span> Pop! (Varying %)</li>
+                             <li>High Iron (Fe) & Magnesium (Mg) Factor</li>
+                             <li>Lower Aluminum (Al) than highlands</li>
+                         </ul>
+                     </div>
+
+                     <div class="property">
+                         <div class="property-title">
+                             <span class="property-icon">💥</span>
+                             <h3>Look & Feel</h3>
+                         </div>
+                         <ul>
+                             <li>Super Dark Color (Gray/Black)</li>
+                             <li>Fine Grain (cooled fast!)</li>
+                             <li>Vesicular? (Gas bubble holes!)</li>
+                             <li>Density: ~3.1 - 3.3 g/cm³ (Hefty!)</li>
+                             <li>Low Albedo (Doesn't reflect much light)</li>
+                         </ul>
+                     </div>
+                 </div>
+
+                 <div class="tab-content" id="formation">
+                      <div class="property">
+                          <div class="property-title">
+                              <span class="property-icon">🌋</span>
+                              <h3>Origin Story</h3>
+                          </div>
+                          <ul>
+                              <li>Made by <span class="highlight" onclick="openModal('volcanism')">Volcano Power!</span></li>
+                              <li>Filled big impact craters</li>
+                              <li>Basically ancient Moon Lava</li>
+                              <li>Magma from the Mantle</li>
+                              <li>Younger than highlands (~3.1-3.9 Billion yrs)</li>
+                          </ul>
+                      </div>
+
+                      <div class="property">
+                          <div class="property-title">
+                              <span class="property-icon">🗺️</span>
+                              <h3>Where It Lives</h3>
+                          </div>
+                          <ul>
+                              <li>Main rock of the <span class="highlight" onclick="openModal('lunar-maria')">Lunar Maria</span> (dark 'seas')</li>
+                              <li>Less cratered (newer surface)</li>
+                              <li>Tells story of Moon's later heat</li>
+                          </ul>
+                      </div>
+                 </div>
+
+                 <div class="tab-content" id="significance">
+                      <div class="property">
+                          <div class="property-title">
+                              <span class="property-icon">💡</span>
+                              <h3>Why It Matters</h3>
+                          </div>
+                          <ul>
+                             <li>Tracks Moon <span class="highlight" onclick="openModal('volcanism')">Volcanism</span> history</li>
+                              <li>Helps date mare surfaces</li>
+                              <li>Used for crater dating calibration</li>
+                              <li>Composition clues about the mantle</li>
+                          </ul>
+                      </div>
+
+                      <div class="property">
+                          <div class="property-title">
+                              <span class="property-icon">🚀</span>
+                              <h3>Space Loot!</h3>
+                          </div>
+                          <ul>
+                              <li>Source of Iron (Fe) & Titanium (Ti)</li>
+                              <li><span class="highlight" onclick="openModal('ilmenite')">Ilmenite</span>: Grab Oxygen (O₂) from it!</li>
+                              <li>Potential Helium-3 source</li>
+                              <li>Future Moon building blocks!</li>
+                          </ul>
+                      </div>
+                 </div>
+
+                <div class="interactive-controls">
+                    <button class="btn" id="rotate-btn">Stop Rotation</button>
+                    <button class="btn btn-outline" id="sample-btn" onclick="openModal('apollo-samples')">Apollo Samples!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals (Content unchanged, appearance styled) -->
+    <div id="pyroxene" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('pyroxene')">×</span> <h3 class="modal-title">Pyroxene Group Minerals</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Augite-210973.jpg/800px-Augite-210973.jpg" alt="Pyroxene Crystal (Augite)" class="modal-image"> <p>These guys are key rock-formers! In lunar basalts, think Augite & Pigeonite. Their exact type tells tales of the magma!</p><p><strong>Formula:</strong> XY(Si,Al)₂O₆ (X=Ca,Na,Fe,Mg; Y=Mg,Fe,Al,Ti...)</p><p><strong>Look:</strong> Dark green/black, 2 cleavages @ 90°, hardness 5-6.5.</p> </div> </div>
+    <div id="plagioclase" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('plagioclase')">×</span> <h3 class="modal-title">Plagioclase Feldspar</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Plagioclase_feldspar.jpg/800px-Plagioclase_feldspar.jpg" alt="Plagioclase Feldspar" class="modal-image"> <p>Still important in basalt, but different from the highlands stuff. More of a mix of Calcium (Anorthite) & Sodium (Albite) types here.</p><p><strong>Series:</strong> (Na,Ca)[(Al,Si)AlSi₂]O₈</p><p><strong>Look:</strong> Whitish/grayish grains, hardness 6-6.5.</p> </div> </div>
+    <div id="ilmenite" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('ilmenite')">×</span> <h3 class="modal-title">Ilmenite Power!</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/7d/Ilmenite-157088.jpg/800px-Ilmenite-157088.jpg" alt="Ilmenite crystals" class="modal-image"> <p>The Iron-Titanium Oxide (FeTiO₃) famous in High-Ti basalts (Apollo 11/17!). It's black, opaque, and holds the keys to Moon resources.</p><p><strong>Why Cool?:</strong> Awesome source of Titanium & the best bet for getting OXYGEN (O₂) on the Moon using ISRU (In-Situ Resource Utilization)! Zap it with Hydrogen (H₂) → Water + Iron + TiO₂!</p><p><strong>Look:</strong> Black, metallic, hardness 5-6.</p> </div> </div>
+    <div id="olivine" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('olivine')">×</span> <h3 class="modal-title">Olivine Pop!</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Olivine-gem7-16a.jpg/800px-Olivine-gem7-16a.jpg" alt="Olivine (Peridot gem)" class="modal-image"> <p>This Magnesium-Iron Silicate shows up early when magma cools. The Mg vs Fe ratio tells scientists about the deep lunar mantle magma source.</p><p><strong>Formula:</strong> (Mg, Fe)₂SiO₄</p><p><strong>Look:</strong> Often olive-green (hence the name!), glassy, hardness 6.5-7.</p> </div> </div>
+    <div id="volcanism" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('volcanism')">×</span> <h3 class="modal-title">Moon Volcano Action!</h3> <img src="https://www.lpi.usra.edu/education/explore/moon/activities/images/Lunar_volcanism_2.jpg" alt="Diagram of Lunar Volcanism" class="modal-image"> <p>Not like Earth's! Mostly runny basalt lava flows flooding giant basins between 3.9-3.1 Billion years ago (mostly). Radioactive heat inside the Moon melted the mantle → MAGMA! → ERUPTION!</p> </div> </div>
+    <div id="lunar-maria" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('lunar-maria')">×</span> <h3 class="modal-title">Lunar Maria ('Seas')</h3> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/FullMoon2010.jpg/800px-FullMoon2010.jpg" alt="Full Moon showing Maria" class="modal-image"> <p>Those big, dark patches on the Moon! Not water, but plains of cooled basalt lava from those ancient eruptions. They cover ~16% of the Moon, mostly the side facing us. Fewer craters = younger surface!</p> </div> </div>
+    <div id="apollo-samples" class="modal"> <div class="modal-content"> <span class="close-modal" onclick="closeModal('apollo-samples')">×</span> <h3 class="modal-title">Apollo Samples Rock!</h3> <img src="https://curator.jsc.nasa.gov/lunar/images/sampleimgs/12002t.jpg" alt="Apollo 12 Basalt Sample 12002" class="modal-image"> <p>Astronauts brought back basalt bits from the Sea of Tranquility (Apollo 11), Ocean of Storms (12), Hadley Rille (15), Taurus-Littrow (17) & more! These rocks PROVED the volcanoes and let us study their chemistry & age. Finding different types (Hi-Ti vs Low-Ti) showed the Moon's inside was complex!</p><p>(Image: Apollo 12 Basalt 12002)</p><p><a href="https://curator.jsc.nasa.gov/lunar/index.cfm" target="_blank" class="btn btn-outline">NASA Sample Catalog!</a></p> </div> </div>
+
+    <script>
+        // === JavaScript (Functionality Unchanged) ===
+
+        // Tab functionality
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                const activeContent = document.getElementById(tabId);
+                if(activeContent) {
+                    activeContent.classList.add('active');
+                }
+            });
+        });
+
+        // Model viewer controls
+        const modelViewer = document.querySelector('model-viewer');
+        const rotateBtn = document.getElementById('rotate-btn');
+
+        // Check initial state (auto-rotate might be present)
+        let isRotating = modelViewer.hasAttribute('auto-rotate');
+        rotateBtn.textContent = isRotating ? 'Stop Rotation' : 'Start Rotation';
+
+        rotateBtn.addEventListener('click', () => {
+            if (modelViewer.hasAttribute('auto-rotate')) {
+                modelViewer.removeAttribute('auto-rotate');
+                rotateBtn.textContent = 'Start Rotation';
+                isRotating = false;
+            } else {
+                modelViewer.setAttribute('auto-rotate', '');
+                rotateBtn.textContent = 'Stop Rotation';
+                isRotating = true;
+            }
+        });
+
+        // Ensure model viewer exists before adding further event listeners
+        if (modelViewer) {
+             // Stop button rotation if user interacts
+             modelViewer.addEventListener('camera-change', () => {
+                 if (isRotating && modelViewer.getAttribute('interaction-prompt') === 'none') { // interaction-prompt goes to 'none' after user interaction
+                      // Optional: Uncomment below if you want ANY manual interaction to stop auto-rotate
+                     // modelViewer.removeAttribute('auto-rotate');
+                     // rotateBtn.textContent = 'Start Rotation';
+                     // isRotating = false;
+                 }
+             });
+         } else {
+             console.error("Model Viewer element not found!");
+         }
+
+
+        // Modal functions
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if(modal) {
+                modal.style.display = 'block';
+                // Optional: Add class for animation trigger if needed beyond display:block
+                // modal.classList.add('modal-open-animation');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            } else {
+                console.error("Modal with ID '" + modalId + "' not found.");
+            }
+        }
+
+        function closeModal(modalId) {
+             const modal = document.getElementById(modalId);
+             if(modal) {
+                 // Optional: Add class for closing animation before setting display none
+                 // modal.classList.add('modal-close-animation');
+                 // setTimeout(() => { // Hide after animation
+                    modal.style.display = 'none';
+                    // modal.classList.remove('modal-close-animation'); // Clean up class
+                    document.body.style.overflow = 'auto'; // Re-enable scrolling
+                 // }, 300); // Match animation duration
+            }
+        }
+
+        // Close modal when clicking backdrop
+        window.addEventListener('click', (event) => {
+            document.querySelectorAll('.modal').forEach(modal => {
+                if (event.target == modal) {
+                     const modalId = modal.id;
+                     closeModal(modalId);
+                 }
+             });
+        });
+
+        // Ensure modal close buttons work robustly
+        document.querySelectorAll('.close-modal').forEach(button => {
+             const modal = button.closest('.modal');
+             if (modal) {
+                 const modalId = modal.id;
+                 button.removeAttribute('onclick'); // Remove inline handler
+                 button.addEventListener('click', () => closeModal(modalId));
+             }
+        });
+    </script>
+</body>
+</html>

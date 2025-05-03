@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket Hangar - Space Quiz Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #0a0a1a;
+            color: #ffffff;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.1) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 255, 0.1) 0%, transparent 20%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="1" fill="white" opacity="0.7"/></svg>');
+            background-size: cover, cover, auto;
+            min-height: 100vh;
+        }
+
+        #menu-bar {
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 15px 0;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            border-bottom: 1px solid #00ffff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .menu-item {
+            color: #00ffff;
+            text-decoration: none;
+            font-size: 1.2rem;
+            padding: 8px 20px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover {
+            background-color: #00ffff;
+            color: #000;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ffff;
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .filter-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 8px 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+            background-color: #00ffff;
+            color: #000;
+        }
+
+        .rocket-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .rocket-card {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #00ffff;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+        }
+
+        .rocket-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 255, 255, 0.3);
+        }
+
+        .rocket-image {
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .rocket-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #ff0;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            border: 1px solid #ff0;
+        }
+
+        .rocket-content {
+            padding: 20px;
+        }
+
+        .rocket-name {
+            font-size: 1.5rem;
+            margin: 0 0 10px;
+            color: #00ffff;
+        }
+
+        .rocket-price {
+            font-size: 1.2rem;
+            color: #0f0;
+            margin-bottom: 15px;
+        }
+
+        .rocket-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+        }
+
+        .stat-icon {
+            margin-right: 8px;
+            color: #00ffff;
+            font-size: 1.2rem;
+        }
+
+        .rocket-description {
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .select-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #00ffff;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .select-btn:hover {
+            background-color: #00bbbb;
+        }
+
+        .select-btn.disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+
+        .special-feature {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .fuel-bar {
+            height: 10px;
+            background-color: #333;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .fuel-level {
+            height: 100%;
+            background: linear-gradient(to right, #f00, #ff0, #0f0);
+            border-radius: 5px;
+        }
+
+        .comparison-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background-color: #00ffff;
+            color: #000;
+            border: none;
+            border-radius: 50px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 255, 255, 0.4);
+            z-index: 10;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .rocket-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .filter-controls {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Menu Bar -->
+    <div id="menu-bar">
+        <a href="index.html" class="menu-item">Home</a>
+        <a href="hangar.html" class="menu-item">Rocket Hangar</a>
+        <a href="about.html" class="menu-item">About</a>
+        <a href="#" class="menu-item">Contact Us</a>
+    </div>
+
+    <div class="container">
+        <h1>Rocket Hangar</h1>
+        
+        <div class="filter-controls">
+            <button class="filter-btn active" onclick="filterRockets('all')">All Rockets</button>
+            <button class="filter-btn" onclick="filterRockets('starter')">Starter</button>
+            <button class="filter-btn" onclick="filterRockets('advanced')">Advanced</button>
+            <button class="filter-btn" onclick="filterRockets('premium')">Premium</button>
+            <button class="filter-btn" onclick="filterRockets('special')">Special</button>
+        </div>
+        
+        <div class="rocket-grid" id="rocketGrid">
+            <!-- Rocket cards will be inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <button class="comparison-btn" onclick="showComparison()">Compare Selected</button>
+
+    <script>
+        // Rocket Data
+        const rockets = [
+            {
+                id: "basic",
+                name: "Starter Rocket",
+                type: "starter",
+                price: 0,
+                fuelCapacity: 100,
+                speed: 1,
+                efficiency: 1.0,
+                cargo: 50,
+                range: "Short",
+                description: "A basic rocket perfect for beginners. Gets you to nearby planets but lacks advanced features.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Starter+Rocket')",
+                unlocked: true
+            },
+            {
+                id: "interceptor",
+                name: "Interceptor MK-II",
+                type: "advanced",
+                price: 50,
+                fuelCapacity: 150,
+                speed: 1.5,
+                efficiency: 0.8,
+                cargo: 75,
+                range: "Medium",
+                description: "A fast interceptor with improved fuel efficiency. Great for quick missions to nearby systems.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Interceptor+MK-II')",
+                unlocked: false,
+                badge: "Popular"
+            },
+            {
+                id: "explorer",
+                name: "Deep Space Explorer",
+                type: "advanced",
+                price: 100,
+                fuelCapacity: 200,
+                speed: 1.2,
+                efficiency: 0.6,
+                cargo: 150,
+                range: "Long",
+                description: "Designed for long-range exploration with large fuel capacity and cargo space. Perfect for scientific missions.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Deep+Space+Explorer')",
+                unlocked: false
+            },
+            {
+                id: "quantum",
+                name: "Quantum Voyager",
+                type: "premium",
+                price: 250,
+                fuelCapacity: 180,
+                speed: 2.5,
+                efficiency: 0.5,
+                cargo: 100,
+                range: "Very Long",
+                description: "Cutting-edge quantum drive technology allows for incredible speed. The choice of elite space couriers.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Quantum+Voyager')",
+                unlocked: false,
+                badge: "Fastest",
+                special: "Quantum Drive"
+            },
+            {
+                id: "titan",
+                name: "Titan Hauler",
+                type: "premium",
+                price: 300,
+                fuelCapacity: 300,
+                speed: 0.8,
+                efficiency: 0.7,
+                cargo: 500,
+                range: "Medium",
+                description: "Massive cargo capacity makes this the ideal ship for traders and miners. Slow but dependable.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Titan+Hauler')",
+                unlocked: false,
+                special: "Mega Cargo"
+            },
+            {
+                id: "stealth",
+                name: "Shadow Stealth",
+                type: "special",
+                price: 400,
+                fuelCapacity: 120,
+                speed: 1.8,
+                efficiency: 0.4,
+                cargo: 60,
+                range: "Medium",
+                description: "Advanced cloaking technology makes this ship nearly undetectable. Favored by smugglers and special ops.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Shadow+Stealth')",
+                unlocked: false,
+                special: "Cloaking"
+            },
+            {
+                id: "science",
+                name: "Galaxy Researcher",
+                type: "special",
+                price: 350,
+                fuelCapacity: 220,
+                speed: 1.0,
+                efficiency: 0.9,
+                cargo: 200,
+                range: "Very Long",
+                description: "Equipped with advanced scanners and research labs. Uncovers more secrets from planets you visit.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Galaxy+Researcher')",
+                unlocked: false,
+                special: "Science Boost"
+            },
+            {
+                id: "battle",
+                name: "Nebula Warrior",
+                type: "special",
+                price: 500,
+                fuelCapacity: 250,
+                speed: 2.0,
+                efficiency: 0.7,
+                cargo: 80,
+                range: "Long",
+                description: "Heavily armored with advanced weapon systems. Essential for dangerous sectors of space.",
+                image: "url('https://via.placeholder.com/350x200/333/00ffff?text=Nebula+Warrior')",
+                unlocked: false,
+                special: "Combat Ready"
+            },
+            {
+                id: "falconx",
+                name: "Falcon X",
+                type: "advanced",
+                price: 180,
+                fuelCapacity: 220,
+                speed: 2.0,
+                efficiency: 0.7,
+                cargo: 120,
+                range: "Long",
+                description: "A next-gen heavy lifter with balanced speed and cargo. Reliable for deep space missions.",
+                image: "url('https://via.placeholder.com/350x200/222/00ffff?text=Falcon+X')",
+                unlocked: false,
+                badge: "Heavy Lifter"
+            },
+            {
+                id: "starfire",
+                name: "Starfire Ultra",
+                type: "premium",
+                price: 400,
+                fuelCapacity: 160,
+                speed: 3.0,
+                efficiency: 0.4,
+                cargo: 90,
+                range: "Very Long",
+                description: "Blazing fast with a state-of-the-art propulsion system. For those who value speed above all.",
+                image: "url('https://via.placeholder.com/350x200/111/ff00ff?text=Starfire+Ultra')",
+                unlocked: false,
+                badge: "Ultra Fast",
+                special: "Afterburner"
+            },
+            {
+                id: "aurora",
+                name: "Aurora Cruiser",
+                type: "starter",
+                price: 30,
+                fuelCapacity: 110,
+                speed: 1.1,
+                efficiency: 1.1,
+                cargo: 60,
+                range: "Short",
+                description: "A stylish entry-level cruiser with slightly better efficiency and comfort.",
+                image: "url('https://via.placeholder.com/350x200/444/00ffcc?text=Aurora+Cruiser')",
+                unlocked: false
+            },
+            {
+                id: "phoenix",
+                name: "Phoenix Ascender",
+                type: "special",
+                price: 600,
+                fuelCapacity: 180,
+                speed: 2.8,
+                efficiency: 0.6,
+                cargo: 110,
+                range: "Very Long",
+                description: "Legendary ship with self-repair nanotech and a unique escape system. Rare and coveted.",
+                image: "url('https://via.placeholder.com/350x200/222/ff6600?text=Phoenix+Ascender')",
+                unlocked: false,
+                special: "Self-Repair"
+            }
+        ];
+
+        // Player data (would normally come from your game state)
+        const playerData = {
+            credits: 150,
+            unlockedRockets: ["basic"]
+        };
+
+        // Initialize the page
+        function init() {
+            renderRockets();
+        }
+
+        // Render all rockets
+        function renderRockets(filter = 'all') {
+            const rocketGrid = document.getElementById('rocketGrid');
+            rocketGrid.innerHTML = '';
+            
+            rockets.forEach(rocket => {
+                if (filter === 'all' || rocket.type === filter) {
+                    const isUnlocked = playerData.unlockedRockets.includes(rocket.id);
+                    const canAfford = playerData.credits >= rocket.price;
+                    
+                    const rocketCard = document.createElement('div');
+                    rocketCard.className = 'rocket-card';
+                    rocketCard.innerHTML = `
+                        <div class="rocket-image" style="background-image: ${rocket.image}">
+                            ${rocket.special ? `<div class="special-feature">${rocket.special}</div>` : ''}
+                            ${rocket.badge ? `<div class="rocket-badge">${rocket.badge}</div>` : ''}
+                        </div>
+                        <div class="rocket-content">
+                            <h3 class="rocket-name">${rocket.name}</h3>
+                            <div class="rocket-price">${rocket.price > 0 ? `${rocket.price} Credits` : 'FREE'}</div>
+                            
+                            <div class="rocket-stats">
+                                <div class="stat">
+                                    <span class="stat-icon">⚡</span>
+                                    <span>Speed: ${rocket.speed}x</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-icon">⛽</span>
+                                    <span>Fuel: ${rocket.fuelCapacity}</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-icon">📦</span>
+                                    <span>Cargo: ${rocket.cargo} units</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-icon">🌌</span>
+                                    <span>Range: ${rocket.range}</span>
+                                </div>
+                            </div>
+                            
+                            <div class="fuel-bar">
+                                <div class="fuel-level" style="width: ${(rocket.efficiency * 100)}%"></div>
+                            </div>
+                            <div style="text-align: center; font-size: 0.8rem; margin-bottom: 10px;">
+                                Efficiency: ${Math.round(rocket.efficiency * 100)}%
+                            </div>
+                            
+                            <p class="rocket-description">${rocket.description}</p>
+                            
+                            <button class="select-btn ${isUnlocked ? '' : 'disabled'}" 
+                                onclick="${isUnlocked ? `selectRocket('${rocket.id}')` : ''}">
+                                ${isUnlocked ? 'SELECT' : canAfford ? `UNLOCK FOR ${rocket.price} CREDITS` : 'NOT ENOUGH CREDITS'}
+                            </button>
+                        </div>
+                    `;
+                    
+                    rocketGrid.appendChild(rocketCard);
+                }
+            });
+        }
+
+        // Filter rockets by type
+        function filterRockets(type) {
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            renderRockets(type);
+        }
+
+        // Select a rocket
+        function selectRocket(rocketId) {
+            // In a real game, this would save to your game state
+            alert(`Selected ${rockets.find(r => r.id === rocketId).name}`);
+            // Then redirect back to main game or update UI
+            // window.location.href = 'index.html';
+        }
+
+        // Show comparison of selected rockets
+        function showComparison() {
+            alert('Comparison feature would show side-by-side stats of selected rockets');
+            // This would be a modal showing detailed comparison
+        }
+
+        // Initialize the page when loaded
+        window.onload = init;
+    </script>
+</body>
+</html>

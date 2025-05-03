@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<!-- saved from url=(0044)file:///D:/gameDevelopment/game/summary.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moon Mission Briefing - Enhanced</title>
+
+    <!-- 1. Add Model Viewer Component Script -->
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+    <style>
+        /* --- Base & Global --- */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        html { height: 100%; }
+        body {
+            margin: 0; padding: 0; height: 100%; overflow: hidden;
+            background: linear-gradient(0deg, #000 0%, #001f3f 100%);
+            background-size: cover;
+            animation: spaceTravel 60s linear infinite alternate;
+            font-family: 'Courier New', monospace;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+        }
+        @keyframes spaceTravel { 0% { background-position: 0 0; } 100% { background-position: 0 100%; } }
+
+        /* --- Fixed Menu Bar --- */
+        #menu-bar {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.85); padding: 10px 0;
+            display: flex; justify-content: center; gap: 20px;
+            z-index: 100; border-bottom: 1px solid #00ffff;
+            flex-shrink: 0;
+            order: 1;
+        }
+        .menu-item {
+            color: #00ffff; text-decoration: none; font-size: clamp(1rem, 2vw, 1.2rem);
+            padding: 5px 15px; border-radius: 5px; transition: all 0.3s ease;
+        }
+        .menu-item:hover, .menu-item.active { background-color: #00ffff; color: #000; }
+
+        /* --- Starfield Background (fixed) --- */
+        .starfield { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1; }
+        .star {
+            position: absolute; width: 2px; height: 2px; background-color: white;
+            border-radius: 50%; opacity: 0.7; animation: twinkle 1.5s infinite alternate;
+        }
+        @keyframes twinkle { from { opacity: 0.2; } to { opacity: 0.8; } }
+
+        /* --- Main Layout Container --- */
+        #layout-container {
+            display: flex;
+            flex-grow: 1;
+            height: calc(100% - 61px); /* Adjust based on menu bar height */
+            overflow: hidden;
+            position: relative;
+            padding: 15px; /* Slightly more padding around main content */
+            order: 2;
+            justify-content: center; /* Center the content area */
+            align-items: flex-start; /* Align items to the top */
+        }
+
+        /* --- Main Content Area (Now holds the row) --- */
+        #main-content-area {
+            display: flex; /* Use flex to manage children */
+            flex-direction: column;
+            align-items: center; /* Center title */
+            flex-grow: 1; /* Allow it to take space */
+            overflow: hidden; /* Prevent overflow */
+            height: 100%;
+            max-width: 1450px; /* Increased max-width slightly */
+            width: 100%;
+        }
+
+        #floatingText {
+            font-size: clamp(2.2rem, 5vw, 3rem);
+            color: #00ffff;
+            animation: float 4s ease-in-out infinite;
+            z-index: 10;
+            white-space: nowrap;
+            text-shadow: 0 0 15px #00ffff, 0 0 25px #00ffffaa;
+            margin-bottom: 20px; /* More space below title */
+            text-align: center;
+            flex-shrink: 0;
+        }
+        @keyframes float { 0% { transform: translateY(0); opacity: 0.9; } 50% { transform: translateY(-8px); opacity: 1; } 100% { transform: translateY(0); opacity: 0.9; } }
+
+        /* --- Content Row (Contains mission details + visuals) --- */
+        .content-row {
+            display: flex;
+            justify-content: center; /* Center columns within the row */
+            align-items: stretch; /* Make columns same height */
+            gap: 25px; /* Increased space between columns */
+            width: 100%;
+            flex-wrap: nowrap; /* Prevent wrapping on larger screens */
+            flex-grow: 1; /* Take available vertical space */
+            overflow: hidden; /* Hide overflow */
+            min-height: 0; /* Crucial for flex children scrolling */
+            padding: 0 5px; /* Padding inside the row */
+        }
+
+        /* --- Common Panel Styles --- */
+        .info-panel { /* Applied to both mission details and visuals */
+            background-color: rgba(0, 10, 20, 0.9);
+            color: #00ffff;
+            padding: clamp(15px, 2vw, 20px); /* Default padding */
+            border-radius: 10px;
+            border: 1px solid #00ffff;
+            z-index: 5;
+            box-shadow: 0 0 15px #00ffff66;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Important for internal scrolling / model display */
+            height: 100%; /* Take full height of content-row */
+            min-height: 0; /* Allow shrinking */
+        }
+
+        /* --- Mission Details Panel Specifics --- */
+        #mission-details {
+             flex: 3; /* Give text slightly more relative space */
+             max-width: 900px; /* Max width for readability */
+             min-width: 320px; /* Min width before wrapping */
+             width: 65%; /* Adjusted width proportion */
+        }
+
+        /* --- Visuals Panel (for Moon Model) --- */
+        #visuals-panel {
+            flex: 2; /* Give model slightly less relative space */
+            max-width: 500px; /* Limit width */
+            min-width: 280px; /* Min width before wrapping */
+            width: 35%; /* Adjusted width proportion */
+            align-items: center; /* Center the model viewer horizontally */
+            justify-content: center; /* Center the model viewer vertically */
+            padding: 10px; /* Reduced padding to frame model tighter */
+        }
+
+        /* --- Model Viewer Styles --- */
+        model-viewer { /* Style for the Moon model */
+            width: 100%;
+            height: 100%;
+            min-height: 250px; /* Ensure moon model has decent base height */
+            background-color: transparent; /* Blend with panel background */
+            border-radius: 5px; /* Match panel rounding */
+            --poster-color: transparent; /* Hide poster background */
+            cursor: grab; /* Indicate interactivity */
+        }
+         #moon-model {
+            max-height: 550px; /* Increased max height slightly */
+         }
+         model-viewer:active {
+             cursor: grabbing; /* Change cursor while interacting */
+         }
+
+        /* --- Specific Styles for Mission Briefing Page --- */
+        #mission-details-content {
+            flex-grow: 1; /* Allow this div to take up space */
+            overflow-y: auto; /* Enable vertical scroll */
+            min-height: 0; /* Allow shrinking */
+            padding: 0 15px 10px 10px; /* Adjusted padding slightly */
+            line-height: 1.6;
+        }
+
+        /* Custom Scrollbar */
+        #mission-details-content::-webkit-scrollbar { width: 8px; }
+        #mission-details-content::-webkit-scrollbar-track { background: rgba(0, 20, 30, 0.3); border-radius: 4px; }
+        #mission-details-content::-webkit-scrollbar-thumb { background-color: #00ffffaa; border-radius: 4px; border: 1px solid #005050; }
+        #mission-details-content::-webkit-scrollbar-thumb:hover { background-color: #00ffff; }
+        #mission-details-content { scrollbar-width: thin; scrollbar-color: #00ffffaa rgba(0, 20, 30, 0.3); }
+
+        #mission-details h3 { /* Main Title */
+            text-align: center; margin-top: 0; margin-bottom: 20px; color: white;
+            font-size: clamp(1.4em, 2.8vw, 1.6em); border-bottom: 1px solid #00ffff55; padding-bottom: 10px;
+            flex-shrink: 0;
+        }
+         #mission-details h4 { /* Section Titles */
+            color: #ffffff; margin-top: 25px; margin-bottom: 15px; /* More bottom margin */
+            font-size: clamp(1.1em, 2.2vw, 1.25em);
+            border-bottom: 1px dotted #00ffff88; padding-bottom: 8px; /* More padding */
+            flex-shrink: 0;
+        }
+        #mission-details h4.hazards { color: #ffcc66; border-bottom-color: #ffcc6688; }
+
+         #mission-details p, #mission-details ul:not(.hazards-list), #mission-details ol { /* Target general paragraphs and lists EXCEPT hazards */
+            margin-bottom: 15px; font-size: clamp(0.95rem, 1.9vw, 1.05rem); /* Slightly larger max size */
+            color: #ccc;
+        }
+        /* General Unordered List Styling (Checklist uses this base) */
+        #mission-details ul:not(.hazards-list):not(.sample-list) { list-style: none; padding-left: 5px; }
+        #mission-details ul:not(.hazards-list):not(.sample-list) li { padding-left: 1.8em; margin-bottom: 8px; position: relative; line-height: 1.5; }
+        #mission-details ul:not(.hazards-list):not(.sample-list) li::before { content: "»"; color: #00ffff; position: absolute; left: 0; top: 1px; width: 1.5em; font-weight: bold; }
+
+         /* Ordered List (Objectives) Styling */
+         #mission-details ol { list-style: none; padding-left: 5px; counter-reset: objective-counter; margin-bottom: 15px; font-size: clamp(0.95rem, 1.9vw, 1.05rem); color: #ccc; }
+         #mission-details ol li { position: relative; padding-left: 2.5em; margin-bottom: 10px; line-height: 1.5; }
+         #mission-details ol li::before { counter-increment: objective-counter; content: counter(objective-counter) "."; position: absolute; left: 5px; top: 0; width: 1.8em; color: #00ffff; font-weight: bold; text-align: right; padding-right: 0.5em; box-sizing: border-box; }
+
+        /* Hazard List Styling */
+        .hazards-list { list-style: none; padding-left: 0; margin-top: 10px; margin-bottom: 15px; }
+        .hazards-list li { position: relative; padding-left: 185px; margin-bottom: 10px; font-size: clamp(0.95rem, 1.9vw, 1.05rem); color: #ccc; line-height: 1.6; /* Slightly more line height */ }
+        .hazards-list li strong { position: absolute; left: 5px; top: 0; width: 165px; padding-right: 10px; color: #ffffff; font-weight: bold; text-align: right; }
+        .hazards-list li strong.primary-hazard-label { color: #ffcc66; width: auto; text-align: left; position: static; display: inline; padding-right: 5px; font-weight: bold; }
+
+        /* Sample List Styling (Models Removed) */
+        .sample-list { margin-top: 10px; padding-left: 0; list-style: none; }
+        .sample-item {
+            background-color: rgba(0, 30, 50, 0.5); /* Slightly darker */
+            border-left: 3px solid #00ffff;
+            padding: 12px 18px; /* Increased padding */
+            margin-bottom: 12px;
+            border-radius: 4px;
+            font-size: clamp(0.9rem, 1.8vw, 1rem);
+            line-height: 1.5;
+        }
+        /* No flex needed now */
+        .sample-item strong { color: #ffffff; display: block; margin-bottom: 5px; /* More space */ font-size: 1.1em; font-weight: bold; }
+        .sample-item span { color: #bbb; display: block; }
+        .sample-item strong.highlight { color: #fff; font-weight: bold; display: inline; background: #00ffff22; padding: 2px 4px; border-radius: 3px; margin-left: 5px; }
+
+        /* Parameter Section Styling (Overview, Loadout) */
+        .parameter-section { margin-top: 15px; padding-left: 5px; font-size: clamp(0.9rem, 1.8vw, 1rem); line-height: 1.7; /* Slightly more line height */ }
+        .parameter-section p { margin-bottom: 10px; color: #ccc; }
+        .parameter-section strong { color: #ffffff; display: inline-block; min-width: 190px; padding-right: 10px; font-weight: bold; }
+        .parameter-section span { color: #eee; }
+        .parameter-section strong.highlight { color: #fff; font-weight: bold; }
+
+        /* Pre-Flight Checklist styling */
+        .checklist { margin-top: 15px; }
+        .checklist ul { padding-left: 5px; }
+        /* Use general UL styling for list structure */
+        .checklist li::before { content: "☐ "; /* Added space after box */ color: #00ffff; position: absolute; left: 0; top: 1px; width: 1.5em; font-weight: bold;}
+        /* Overwrite the content and color, inherit positioning/size from general UL */
+
+
+        .return-link-container {
+            text-align: center; margin-top: auto; padding-top: 20px;
+            border-top: 1px solid #00ffff55; flex-shrink: 0; /* Keep at bottom */
+        }
+        .return-link {
+            display: inline-block; padding: 10px 25px; /* Larger button */
+            font-size: clamp(1rem, 2vw, 1.15rem); /* Slightly larger */
+            background-color: #001a33;
+            color: #00ffff; border: 1px solid #00ffff; border-radius: 5px;
+            text-decoration: none; transition: all 0.3s ease;
+        }
+        .return-link:hover { background-color: #00ffff; color: #001a33; box-shadow: 0 0 12px #00ffff; transform: scale(1.04); }
+        hr.panel-divider { display: none; }
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 1000px) {
+            #layout-container { padding: 10px; }
+            #main-content-area { max-width: 98%; }
+            .content-row {
+                flex-wrap: wrap; /* Allow columns to wrap */
+                gap: 15px; /* Reduce gap when wrapping */
+             }
+            #mission-details, #visuals-panel {
+                width: 100%; /* Make columns full width when wrapped */
+                flex: none; /* Disable flex sizing */
+                max-width: none; /* Remove max width */
+                margin-bottom: 20px; /* Add space between stacked panels */
+                height: auto; /* Allow height to adjust to content */
+            }
+            #visuals-panel {
+                min-height: 350px; /* Give model reasonable space when stacked */
+                height: 50vh; /* Relative height - increased */
+                order: -1; /* Visuals first on mobile */
+            }
+             .info-panel { max-height: none; /* Allow panels to grow */ }
+             #mission-details-content { overflow-y: visible; /* Allow content to determine height */}
+        }
+
+        @media (max-width: 700px) {
+             body { overflow: auto; } /* Allow body scroll on small devices */
+             #layout-container { height: auto; padding: 5px; }
+             #main-content-area { padding: 5px; height: auto;}
+             .content-row { padding: 0;}
+             #floatingText { font-size: clamp(1.8rem, 7vw, 2.5rem); margin-bottom: 15px; }
+             .info-panel { min-height: auto; padding: 15px; }
+             #visuals-panel { height: 45vh; min-height: 300px; } /* Slightly adjust mobile moon view */
+             #mission-details h3 { font-size: clamp(1.2em, 2.5vw, 1.4em); }
+             #mission-details h4 { font-size: clamp(1em, 2vw, 1.15em); margin-bottom: 12px; }
+             #mission-details p, #mission-details ul, #mission-details ol { font-size: clamp(0.9rem, 1.8vw, 1rem); margin-bottom: 12px; }
+             .sample-item { padding: 10px 15px; }
+             .parameter-section { font-size: clamp(0.9rem, 1.8vw, 1rem); line-height: 1.6; }
+             .parameter-section strong { min-width: 150px; }
+             .hazards-list li { padding-left: 145px; line-height: 1.5;}
+             .hazards-list li strong { width: 130px; }
+             .return-link { padding: 8px 20px; font-size: 1rem;}
+        }
+
+        @media (max-width: 450px) {
+             #floatingText { font-size: clamp(1.6rem, 6vw, 2rem); }
+             #layout-container { padding: 5px 3px; }
+             .info-panel { padding: 12px; }
+             #visuals-panel { height: 40vh; min-height: 280px; }
+             .return-link { padding: 7px 18px; font-size: clamp(0.9rem, 1.8vw, 1rem); }
+             .parameter-section { line-height: 1.6;}
+             .parameter-section strong { min-width: 100px; /* Further reduce */ display: block; margin-bottom: 4px; padding-right: 0; } /* Stack label/value */
+             .parameter-section span { padding-left: 5px; display: block; }
+             #mission-details ul:not(.hazards-list):not(.sample-list) li,
+             #mission-details ol li { padding-left: 2.2em; margin-bottom: 8px;} /* Adjust list indent */
+             #mission-details ul:not(.hazards-list):not(.sample-list) li::before,
+             #mission-details ol li::before { width: 1.6em; left: 3px; } /* Adjust pseudo-element position */
+             /* Hazard List Stacked */
+             .hazards-list li { padding-left: 5px; }
+             .hazards-list li strong { position: static; display: block; width: auto; text-align: left; margin-bottom: 4px; padding-right: 0;}
+             .hazards-list li span { padding-left: 5px; display: block; }
+             .hazards-list li strong.primary-hazard-label { display: block; position: static; margin-bottom: 5px; } /* Ensure hazard label stacks too */
+             .checklist li::before { top: 2px;}
+        }
+
+        /* Model Viewer Progress Bar Styles */
+        .progress-bar {
+            display: block; position: absolute; width: 80%; max-width: 200px;
+            height: 5px; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            border-radius: 5px; background-color: rgba(100, 100, 100, 0.5);
+            overflow: hidden; transition: opacity 0.3s ease 0.1s; /* Slight delay on fade out */
+        }
+        .update-bar {
+            background-color: #00ffff; width: 0%; height: 100%;
+            transition: width 0.1s linear;
+        }
+        .hide { opacity: 0; pointer-events: none; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Menu Bar -->
+    <div id="menu-bar">
+        <a href="index.html" class="menu-item">Spaceport Hub</a>
+        <a href="#" class="menu-item active">Mission Briefing</a>
+        <a href="#" class="menu-item">About</a>
+        <a href="#" class="menu-item">Contact Us</a>
+    </div>
+
+    <!-- Main Layout Container -->
+    <div id="layout-container">
+        <!-- Starfield -->
+        <div class="starfield" id="starfield"></div>
+
+        <!-- Main Content Area -->
+        <div id="main-content-area">
+            <!-- Title -->
+            <div id="floatingText">Moon Mission Briefing</div>
+
+            <!-- Content Row -->
+            <div class="content-row">
+
+                <!-- Mission Details Panel -->
+                <div id="mission-details" class="info-panel">
+                    <h3>Mission Dossier: Operation Lunar Leap</h3>
+
+                    <div id="mission-details-content"> <!-- Scrollable Area -->
+
+                        <h4>Mission Overview</h4>
+                        <div class="parameter-section">
+                            <p><strong>Designation:</strong><span>Lunar Surface Exploration & Resource Assessment</span></p>
+                            <p><strong>Destination:</strong><span>Moon (Sol IIIa), Earth's Natural Satellite</span></p>
+                            <p><strong>Distance from Earth:</strong><span>Approx. 5 Standard Units</span></p>
+                            <p><strong>Est. Mission Duration:</strong><span>~ 48-72 Standard Hours (Surface Ops)</span></p>
+                            <p><strong>Primary Purpose:</strong><span>Reconnaissance, Geological Sampling, Low-G Adaptation Trials, Resource Viability Scan (H₂O, He-3).</span></p>
+                        </div>
+
+                        <h4 class="hazards">Environment & Hazards Analysis</h4>
+                         <p>Operate under low-gravity conditions. Anticipate significant environmental challenges:</p>
+                         <ul class="hazards-list">
+                            <li><strong>Gravity:</strong><span>~0.16g (1/6th Earth Standard). Affects mobility & equipment handling.</span></li>
+                            <li><strong>Temperature:</strong><span>Extreme variance. ~120°C (Direct Sun) to -170°C (Shadow). Thermal regulation critical.</span></li>
+                            <li><strong>Atmosphere:</strong><span>Exosphere (Near Vacuum). Full life support required at all times.</span></li>
+                             <li><strong>Radiation:</strong><span>Low background levels, but minimal atmospheric shielding. Monitor dosimetry.</span></li>
+                            <li><strong class="primary-hazard-label">Primary Hazard: Lunar Dust (Regolith Fines).</strong><span>Highly abrasive, electrostatically charged micro-particles. Poses significant risk to suit seals, mechanisms, optics, and respiratory systems if inhaled. Strict mitigation protocols mandatory.</span></li>
+                         </ul>
+
+                        <h4>Operational Objectives</h4>
+                        <ol>
+                            <li>Conduct surface traversal trials (run/hop maneuvers) to calibrate mobility systems and gather biomechanical data in low-G.</li>
+                            <li>Navigate to designated survey zones and perform comprehensive geological surveys.</li>
+                            <li>Collect diverse samples: prioritize <strong class="highlight">Regolith</strong> (bulk & core), potential <strong class="highlight">He-3</strong> concentrations, and evidence of subsurface <strong class="highlight">Water Ice</strong> in shadowed regions.</li>
+                            <li>Deploy environmental sensors to monitor dust behaviour, temperature cycles, and seismic activity (if applicable).</li>
+                            <li>Document all findings, anomalies, and operational data via standard mission logs.</li>
+                        </ol>
+
+                        <h4>Target Resources of Interest</h4>
+                         <p>Prioritize identification and collection of the following:</p>
+                        <ul class="sample-list">
+                            <li class="sample-item">
+                                <!-- Resource Models Removed -->
+                                <strong>Moon Rocks (Regolith)</strong>
+                                <span>Bulk surface layer. Analyze composition, density, and particle size distribution.</span>
+                            </li>
+                            <li class="sample-item">
+                                <!-- Resource Models Removed -->
+                                <strong>Lunar Dust (Fines)</strong>
+                                <span>Collect dedicated samples for abrasiveness and electrostatic property analysis. <strong class="highlight">[Hazard Study]</strong></span>
+                            </li>
+                            <li class="sample-item">
+                                <!-- Resource Models Removed -->
+                                <strong>Helium-3 Isotope (He-3)</strong>
+                                <span>Potential fusion fuel embedded by solar wind. Use surface scanners to detect high-concentration zones. <strong class="highlight">[High Priority Resource]</strong></span>
+                            </li>
+                            <li class="sample-item">
+                                <!-- Resource Models Removed -->
+                                <strong>Water Ice (H₂O)</strong>
+                                <span>Confirm presence/absence in permanently shadowed craters via subsurface probes/drills. Assess potential for extraction. <strong class="highlight">[High Priority Resource]</strong></span>
+                            </li>
+                        </ul>
+
+                        <h4>Recommended Loadout</h4>
+                        <div class="parameter-section">
+                             <p><strong>Orbital Transport:</strong><span><strong class="highlight">🚀 Basic Orbiter</strong>. Sufficient thrust & delta-V for lunar trajectory; fuel-efficient for this short range.</span></p>
+                             <p><strong>Surface Lander/Shuttle:</strong><span><strong class="highlight">Light Surface Lander</strong>. Must possess robust low-G maneuvering thrusters, advanced dust filtration/mitigation systems for airlocks and components, and adequate sample storage.</span></p>
+                             <p><strong>Est. Fuel Required:</strong><span>~10 Units (One-way, Basic Orbiter, nominal trajectory). Allocate reserve for orbital maneuvers & contingencies.</span></p>
+                        </div>
+
+                        <h4>Pre-Flight Checklist</h4>
+                        <div class="checklist">
+                            <ul>
+                                <li>Verify Lander Fuel Levels: Minimum 100% capacity recommended for surface operations & ascent.</li>
+                                <li>Establish Stable Comms Link: Check connection integrity with Orbital Relay / Earth Station.</li>
+                                <li>Perform Suit Integrity Check: Verify all seals, pressure levels, and life support consumables (O₂, H₂O, Power).</li>
+                                <li>Confirm Sample Containment Units: Ensure all collection containers are sterile and functional.</li>
+                            </ul>
+                        </div>
+
+                        <h4>Final Advisory</h4>
+                         <p style="color: #ffcc66; font-style: italic; border: 1px dashed #ffcc6688; padding: 10px; border-radius: 4px; margin-top: 20px; background-color: rgba(255, 204, 102, 0.05);">Commander, adherence to dust mitigation procedures is paramount. Assume all exterior surfaces will become contaminated. Cycle airlocks meticulously. Monitor suit seals constantly. Your safety and mission success depend on vigilance against this pervasive hazard. Good luck, Lunar Leap actual.</p>
+
+                    </div> <!-- End Scrollable Area -->
+
+                    <!-- Return Link -->
+                    <div class="return-link-container">
+                        <a href="index.html" class="return-link">Return to Spaceport Hub</a>
+                    </div>
+
+                </div> <!-- End Mission Details Panel -->
+
+                <!-- Visuals Panel -->
+                <div id="visuals-panel" class="info-panel">
+                    <!-- Moon Model - UPDATED with interaction controls -->
+                    <model-viewer id="moon-model"
+    src="moon.glb"
+    alt="Interactive 3D model of the Moon"
+    camera-controls         <!-- Allows orbiting with mouse or touch -->
+>
+
+                        <!-- Loading Progress Bar -->
+                        <div class="progress-bar hide" slot="progress-bar">
+                            <div class="update-bar"></div>
+                        </div>
+                    </model-viewer>
+                </div><!-- End Visuals Panel -->
+
+            </div> <!-- End content-row -->
+
+        </div> <!-- End main-content-area -->
+
+    </div> <!-- End layout-container -->
+
+    <script>
+        // --- Minimal JS for background stars ---
+        const starfield = document.getElementById('starfield');
+        const starCount = 150; // Define star count
+
+        function generateStars(count) {
+            if (!starfield) return;
+            starfield.innerHTML = ''; // Clear existing for dynamic generation
+            for (let i = 0; i < count; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                star.style.left = Math.random() * 100 + 'vw';
+                star.style.top = Math.random() * 100 + 'vh';
+                const size = Math.random() * 2 + 1;
+                star.style.width = size + 'px';
+                star.style.height = size + 'px';
+                star.style.animationDuration = (Math.random() * 1.5 + 0.5) + 's';
+                star.style.animationDelay = Math.random() * 2 + 's';
+                starfield.appendChild(star);
+            }
+        }
+
+        // Generate stars when the page loads
+        window.onload = () => {
+            generateStars(starCount);
+        };
+
+        // Optional: Model Viewer loading indicator
+        const modelViewer = document.querySelector("#moon-model"); // Specifically target moon model
+        if (modelViewer) {
+             modelViewer.addEventListener('progress', (event) => {
+                const progressBar = modelViewer.querySelector('.progress-bar');
+                const updateBar = modelViewer.querySelector('.update-bar');
+                 if (progressBar && updateBar) {
+                    updateBar.style.width = `${event.detail.totalProgress * 100}%`;
+                    progressBar.classList.toggle('hide', event.detail.totalProgress === 1);
+                 }
+            });
+        }
+
+    </script>
+
+    <!-- Styles for progress bar were moved into the main <style> block -->
+
+</body></html>

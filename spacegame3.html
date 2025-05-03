@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Space Explorer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Orbitron', sans-serif;
+      background: #000;
+      color: #fff;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    #gameArea {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      background: radial-gradient(ellipse at center, #0a0e2a 0%, #000 100%);
+      overflow: hidden;
+    }
+
+    #player {
+      width: 60px;
+      height: 90px;
+      position: absolute;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 90"><path d="M30 0 L60 30 L50 30 L55 60 L40 60 L45 90 L15 90 L20 60 L5 60 L10 30 L0 30 Z" fill="%23FF5500" stroke="%23FFFFFF" stroke-width="1"/><rect x="25" y="30" width="10" height="30" fill="%23FFFFFF"/><circle cx="30" cy="15" r="5" fill="%2300FFFF"/></svg>') no-repeat center;
+      background-size: contain;
+      filter: drop-shadow(0 0 10px orange);
+      z-index: 10;
+      transform-origin: center 70%;
+    }
+
+    .obstacle {
+      position: absolute;
+      border-radius: 50%;
+      filter: drop-shadow(0 0 5px red);
+    }
+
+    .planet {
+      width: 80px;
+      height: 80px;
+      position: absolute;
+      right: 5%;
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      filter: drop-shadow(0 0 15px rgba(255,255,255,0.5));
+      z-index: 5;
+      /* cursor: pointer; No longer needed as it's not clickable */
+    }
+
+    #venus {
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="%23FFCC99"/><path d="M20 50 Q35 30 50 20 Q65 30 80 50 Q65 70 50 80 Q35 70 20 50 Z" fill="%23FF9966"/></svg>');
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    /* Added Moon Style */
+    #moon {
+      position: absolute;
+      width: 25px;
+      height: 25px;
+      background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="%23CCCCCC"/><circle cx="30" cy="30" r="10" fill="%23AAAAAA"/><circle cx="65" cy="60" r="15" fill="%23AAAAAA"/></svg>') no-repeat center;
+      background-size: contain;
+      border-radius: 50%;
+      filter: drop-shadow(0 0 5px #aaa);
+      z-index: 6;
+      pointer-events: none;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 18px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 10px;
+      display: flex;
+      gap: 20px;
+      z-index: 20;
+    }
+
+    #message {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border-radius: 15px;
+      border: 2px solid cyan;
+      display: none;
+      z-index: 30;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    /* Removed Quiz CSS Rules */
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 2s infinite alternate;
+      pointer-events: none;
+    }
+
+    #star-field {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      z-index: 20;
+    }
+
+    .control-btn {
+      width: 60px;
+      height: 60px;
+      background: rgba(0, 100, 255, 0.5);
+      border: 2px solid cyan;
+      border-radius: 50%;
+      color: white;
+      font-size: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+    }
+
+    #joystick {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: rgba(0, 100, 255, 0.3);
+      border: 2px solid cyan;
+      border-radius: 50%;
+      bottom: 30px;
+      left: 30px;
+      display: none; /* Hidden by default, shown via media query */
+    }
+
+    #joystick-knob {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: rgba(0, 200, 255, 0.7);
+      border-radius: 50%;
+      top: 20px; /* Initial position */
+      left: 20px;
+       /* Will be positioned via transform */
+    }
+
+    @media (max-width: 768px) {
+      #joystick {
+        display: block;
+      }
+      #controls {
+        display: none;
+      }
+      /* Removed quiz width adjustment */
+    }
+
+    /* Rocket flame animation */
+    #player::after {
+      content: '';
+      position: absolute;
+      bottom: -15px;
+      left: 20%;
+      width: 60%;
+      height: 30px;
+      background: linear-gradient(to top, orange, red, transparent);
+      border-radius: 50% 50% 0 0;
+      filter: blur(5px);
+      opacity: 0.8;
+      animation: flame 0.1s infinite alternate;
+    }
+
+    @keyframes flame {
+      0% { transform: scaleY(0.8); opacity: 0.7; }
+      100% { transform: scaleY(1.2); opacity: 1; }
+    }
+
+    .shield-powerup {
+      animation: shieldPulse 1s infinite alternate;
+    }
+    @keyframes shieldPulse {
+      0% { box-shadow: 0 0 10px #00ffff; }
+      100% { box-shadow: 0 0 30px #00ffff, 0 0 60px #00f; }
+    }
+
+    .extra-life-powerup {
+      animation: heartPulse 1s infinite alternate;
+    }
+    @keyframes heartPulse {
+      0% { filter: drop-shadow(0 0 5px #ff69b4); }
+      100% { filter: drop-shadow(0 0 20px #ff69b4); }
+    }
+  </style>
+</head>
+<body>
+  <audio id="bg-music" src="space-beat-276093.mp3" loop autoplay></audio>
+
+  <script>
+  // Optionally, add this to ensure music plays on user interaction
+  window.addEventListener('click', function enableMusic() {
+      const music = document.getElementById('bg-music');
+      if (music && music.paused) {
+          music.play().catch(e => console.error("Audio play failed:", e)); // Handle potential errors
+      }
+      // Remove listener after first interaction
+      window.removeEventListener('click', enableMusic);
+      window.removeEventListener('touchstart', enableMusic);
+  }, { once: true });
+   window.addEventListener('touchstart', function enableMusic() {
+      const music = document.getElementById('bg-music');
+      if (music && music.paused) {
+           music.play().catch(e => console.error("Audio play failed:", e));
+      }
+       window.removeEventListener('click', enableMusic);
+       window.removeEventListener('touchstart', enableMusic);
+  }, { once: true });
+  </script>
+
+  <div id="gameArea">
+    <div id="star-field"></div>
+    <div id="player"></div>
+    <div class="planet" id="venus"></div>
+    <div id="moon"></div>
+    <div id="hud">
+      <div>Lives: <span id="lives">3</span></div>
+      <div>Score: <span id="score">0</span></div>
+      <div>Time: <span id="timer">60</span>s</div>
+      <!-- Removed Credits Display -->
+    </div>
+    <div id="message"></div>
+
+    <!-- Removed Quiz Container -->
+
+    <div id="controls">
+      <div class="control-btn" id="up">↑</div>
+      <div class="control-btn" id="left">←</div>
+      <div class="control-btn" id="right">→</div>
+      <div class="control-btn" id="down">↓</div>
+    </div>
+
+    <div id="joystick">
+      <div id="joystick-knob"></div>
+    </div>
+  </div>
+
+  <script>
+    // Game elements
+    const player = document.getElementById("player");
+    const venus = document.getElementById("venus");
+    const hudLives = document.getElementById("lives");
+    const hudScore = document.getElementById("score");
+    const hudTimer = document.getElementById("timer");
+    const messageBox = document.getElementById("message");
+    const gameArea = document.getElementById("gameArea");
+    const starField = document.getElementById('star-field');
+    const moon = document.getElementById('moon');
+    // Removed Quiz Elements
+    // Removed Credits Element
+
+    // Game state
+    const MAX_LIVES = 5;
+    let lives = 3;
+    let score = 0;
+    let timer = 60;
+    let speed = Math.random() * 2 + 2.5;
+    let playerPos = { x: 50, y: window.innerHeight / 2 };
+    let obstacleIntervals = [];
+    let stars = [];
+    let isGameRunning = true;
+    let joystickActive = false;
+    let joystickDirection = { x: 0, y: 0 };
+    let playerRotation = 0;
+    // Removed Quiz State Variables (currentPlanet, currentQuestionIndex, correctAnswers)
+    // Removed credits variable
+    let shieldActive = false;
+    let shieldTimeout = null;
+
+    // Moon orbit state
+    let orbitAngle = 0;
+    const orbitRadiusX = 60;
+    const orbitRadiusY = 45;
+    const orbitSpeed = 0.03;
+
+    // Removed Planet Quiz Data
+
+    // Create stars
+    function createStarField() {
+      starField.innerHTML = '';
+      for (let i = 0; i < 200; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = Math.random() * 3 + 1;
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${Math.random() * 100}vw`;
+        const top = Math.random() * 100;
+        star.setAttribute('data-top', top);
+        star.style.top = `${top}vh`;
+        const speed = Math.random() * 0.5 + 0.5;
+        star.setAttribute('data-speed', speed);
+        starField.appendChild(star);
+      }
+    }
+
+    // Move stars
+    function moveStarField() {
+      const stars = starField.querySelectorAll('.star');
+      stars.forEach(star => {
+        let top = parseFloat(star.getAttribute('data-top'));
+        const speed = parseFloat(star.getAttribute('data-speed'));
+        top += speed;
+        if (top > 100) {
+          top = -1;
+          star.style.left = `${Math.random() * 100}vw`;
+        }
+        star.setAttribute('data-top', top);
+        star.style.top = `${top}vh`;
+      });
+    }
+
+    // Player movement
+    function movePlayer(dx, dy) {
+      if (!isGameRunning) return;
+
+      playerPos.x += dx;
+      playerPos.y += dy;
+
+      if (dx !== 0 || dy !== 0) {
+        playerRotation = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+        player.style.transform = `rotate(${playerRotation}deg)`;
+      }
+
+      const playerWidth = player.offsetWidth;
+      const playerHeight = player.offsetHeight;
+      playerPos.x = Math.max(0, Math.min(window.innerWidth - playerWidth, playerPos.x));
+      playerPos.y = Math.max(0, Math.min(window.innerHeight - playerHeight, playerPos.y));
+
+      player.style.left = playerPos.x + 'px';
+      player.style.top = playerPos.y + 'px';
+
+      checkPlanetCollision(); // Check collision after every move
+    }
+
+    // --- MODIFIED: Check planet collision and REDIRECT ---
+    function checkPlanetCollision() {
+      if (!isGameRunning) return;
+
+      const playerRect = player.getBoundingClientRect();
+      const planets = document.querySelectorAll('.planet'); // Get Venus
+
+      for (const planet of planets) { // Still loop in case you add more later
+        const planetRect = planet.getBoundingClientRect();
+        if (
+          playerRect.left < planetRect.right &&
+          playerRect.right > planetRect.left &&
+          playerRect.top < planetRect.bottom &&
+          playerRect.bottom > planetRect.top
+        ) {
+          // --- LANDING SEQUENCE ---
+          console.log("Collision with", planet.id, "! Redirecting...");
+          isGameRunning = false; // Stop the game loop
+          clearAllIntervals();   // Stop timers, spawners etc.
+          // Optional: Add a small delay or visual effect before redirecting
+          player.style.opacity = '0'; // Make player disappear
+          createExplosion(playerPos.x + player.offsetWidth / 2, playerPos.y + player.offsetHeight / 2); // Optional landing effect
+
+          // Redirect to landed.html
+          window.location.href = "landed.html"; // <<< THE REDIRECTION
+
+          return; // Exit function immediately
+        }
+      }
+    }
+
+    // --- REMOVED Quiz Functions (startQuiz, showNextQuestion, checkAnswer, resumeGameAfterQuiz) ---
+
+    // --- REMOVED updateCreditsDisplay ---
+
+    // Check obstacle collisions
+    function checkCollision() {
+        if (!isGameRunning || shieldActive) return;
+
+        const playerRect = player.getBoundingClientRect();
+        const obstacles = document.querySelectorAll('.obstacle');
+
+        for (const obs of obstacles) {
+            const obsRect = obs.getBoundingClientRect();
+            if (
+            playerRect.left < obsRect.right &&
+            playerRect.right > obsRect.left &&
+            playerRect.top < obsRect.bottom &&
+            playerRect.bottom > obsRect.top
+            ) {
+            if (shieldActive) return; // Double check shield
+            loseLife();
+            obs.remove(); // Remove the hit obstacle
+            // Ideally, also clear its specific interval if tracked precisely
+            return;
+            }
+        }
+    }
+
+
+    // Handle life loss
+    function loseLife() {
+        if (shieldActive) return;
+        lives--;
+        hudLives.textContent = lives;
+        createExplosion(playerPos.x + player.offsetWidth / 2, playerPos.y + player.offsetHeight / 2);
+
+        if (lives <= 0) {
+            gameOver();
+        } else {
+            // Brief invulnerability
+            shieldActive = true;
+            player.style.opacity = '0.5';
+            if (shieldTimeout) clearTimeout(shieldTimeout);
+            shieldTimeout = setTimeout(() => {
+                shieldActive = false;
+                player.style.opacity = '1';
+                player.style.boxShadow = ''; // Reset potential shield effect
+                 player.style.filter = 'drop-shadow(0 0 10px orange)'; // Reset filter
+            }, 1500);
+            resetPlayer();
+        }
+    }
+
+    // Reset player position
+    function resetPlayer() {
+        playerPos = { x: 50, y: window.innerHeight / 2 - player.offsetHeight / 2 };
+        player.style.left = playerPos.x + 'px';
+        player.style.top = playerPos.y + 'px';
+        player.style.transform = 'rotate(0deg)';
+        playerRotation = 0;
+    }
+
+    // Game over
+    function gameOver() {
+        isGameRunning = false;
+        clearAllIntervals();
+        showMessage("GAME OVER<br>Score: " + score + "<br>Tap to restart");
+        setTimeout(() => {
+            document.addEventListener('click', restartGame, { once: true });
+            document.addEventListener('touchstart', restartGame, { once: true });
+        }, 500);
+    }
+
+    // Show message
+    function showMessage(msg) {
+        messageBox.innerHTML = msg;
+        messageBox.style.display = "block";
+    }
+
+    // Create explosion effect
+    function createExplosion(x, y) {
+      const explosion = document.createElement('div');
+      explosion.style.position = 'absolute';
+      explosion.style.left = (x - 30) + 'px';
+      explosion.style.top = (y - 30) + 'px';
+      explosion.style.width = '60px';
+      explosion.style.height = '60px';
+      explosion.style.background = 'radial-gradient(circle, rgba(255,165,0,0.9) 0%, rgba(255,69,0,0.7) 40%, rgba(255,0,0,0) 70%)';
+      explosion.style.borderRadius = '50%';
+      explosion.style.transform = 'scale(0)';
+      explosion.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
+      explosion.style.zIndex = '50';
+      gameArea.appendChild(explosion);
+
+      requestAnimationFrame(() => {
+        explosion.style.transform = 'scale(2.5)';
+        explosion.style.opacity = '0';
+      });
+
+      setTimeout(() => {
+        explosion.remove();
+      }, 400);
+    }
+
+    // Spawn obstacles
+    function spawnObstacle() {
+        if (!isGameRunning) return;
+
+        const asteroidCount = Math.floor(Math.random() * 3) + 1;
+
+        for (let i = 0; i < asteroidCount; i++) {
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            const size = Math.random() * 60 + 20;
+            const shapes = [
+                `polygon(50% 0%, 70% 20%, 90% 30%, 80% 50%, 90% 70%, 70% 80%, 50% 100%, 30% 80%, 10% 70%, 20% 50%, 10% 30%, 30% 20%)`,
+                `polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)`,
+                `polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)`,
+                `polygon(25% 5%, 75% 5%, 95% 25%, 95% 75%, 75% 95%, 25% 95%, 5% 75%, 5% 25%)`
+            ];
+            const colors = ['#8B4513', '#A0522D', '#CD853F', '#D2B48C', '#BC8F8F', '#696969', '#800000'];
+
+            obstacle.style.width = size + 'px';
+            obstacle.style.height = size + 'px';
+            obstacle.style.clipPath = shapes[Math.floor(Math.random() * shapes.length)];
+            obstacle.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            obstacle.style.borderRadius = '30%';
+            obstacle.style.boxShadow = `inset ${size/10}px ${size/10}px ${size/5}px rgba(0,0,0,0.6), inset -${size/10}px -${size/10}px ${size/5}px rgba(255,255,255,0.15)`;
+
+            let startX, startY;
+            const edge = Math.floor(Math.random() * 4);
+            if (edge === 0) { startX = Math.random() * window.innerWidth; startY = -size; }
+            else if (edge === 1) { startX = window.innerWidth + size; startY = Math.random() * window.innerHeight; }
+            else if (edge === 2) { startX = Math.random() * window.innerWidth; startY = window.innerHeight + size; }
+            else { startX = -size; startY = Math.random() * window.innerHeight; }
+            obstacle.style.left = startX + 'px';
+            obstacle.style.top = startY + 'px';
+
+            let targetX, targetY;
+            const centerTargeting = 0.3;
+            if (Math.random() < centerTargeting) {
+                targetX = window.innerWidth * (Math.random() * 0.5 + 0.25);
+                targetY = window.innerHeight * (Math.random() * 0.5 + 0.25);
+            } else {
+                if (edge === 0) { targetX = startX + (Math.random() * 400 - 200); targetY = window.innerHeight + size * 2; }
+                else if (edge === 1) { targetX = -size * 2; targetY = startY + (Math.random() * 400 - 200); }
+                else if (edge === 2) { targetX = startX + (Math.random() * 400 - 200); targetY = -size * 2; }
+                else { targetX = window.innerWidth + size * 2; targetY = startY + (Math.random() * 400 - 200); }
+            }
+
+            const speedFactor = Math.random() * 0.4 + 0.3;
+            const angle = Math.atan2(targetY - startY, targetX - startX);
+            const dx = Math.cos(angle) * speedFactor * 1.5;
+            const dy = Math.sin(angle) * speedFactor * 1.5;
+
+            gameArea.appendChild(obstacle);
+
+            const rotationSpeed = (Math.random() * 4 - 2);
+            let rotation = Math.random() * 360;
+            obstacle.style.transform = `rotate(${rotation}deg)`;
+
+            let intervalId;
+            const moveObstacle = () => {
+                // Basic check if the element still exists in the DOM
+                if (!obstacle.isConnected) {
+                    clearInterval(intervalId);
+                    const index = obstacleIntervals.indexOf(intervalId);
+                    if (index > -1) obstacleIntervals.splice(index, 1);
+                    return;
+                }
+
+                if (!isGameRunning) return; // Freeze if game stopped, but don't clear interval yet
+
+                const currentLeft = parseFloat(obstacle.style.left);
+                const currentTop = parseFloat(obstacle.style.top);
+                const padding = size * 2;
+
+                if (currentLeft < -padding || currentLeft > window.innerWidth + padding || currentTop < -padding || currentTop > window.innerHeight + padding) {
+                    obstacle.remove(); // Remove from DOM
+                    clearInterval(intervalId); // Clear interval
+                    const index = obstacleIntervals.indexOf(intervalId);
+                    if (index > -1) obstacleIntervals.splice(index, 1);
+                    return;
+                }
+
+                obstacle.style.left = (currentLeft + dx) + 'px';
+                obstacle.style.top = (currentTop + dy) + 'px';
+                rotation += rotationSpeed;
+                obstacle.style.transform = `rotate(${rotation}deg)`;
+            };
+            intervalId = setInterval(moveObstacle, 30);
+            obstacleIntervals.push(intervalId);
+        }
+    }
+
+
+    // Spawn shield
+    function spawnShield() {
+        if (!isGameRunning) return;
+        const shield = document.createElement('div');
+        shield.className = 'shield-powerup powerup';
+        shield.style.position = 'absolute';
+        shield.style.left = Math.random() * (window.innerWidth - 60) + 10 + 'px';
+        shield.style.top = Math.random() * (window.innerHeight - 60) + 10 + 'px';
+        shield.style.width = '40px';
+        shield.style.height = '40px';
+        shield.style.background = 'radial-gradient(circle, #00ffff 60%, #0066ff 100%)';
+        shield.style.borderRadius = '50%';
+        shield.style.boxShadow = '0 0 15px #00ffff, 0 0 30px #00f';
+        shield.style.zIndex = 15;
+        shield.title = "Shield Power-Up (5 sec)";
+        gameArea.appendChild(shield);
+
+        let checkShieldCollision = null; // Declare here
+        const collected = () => {
+            activateShield();
+            shield.remove();
+            clearInterval(checkShieldCollision); // Clear interval on collection
+        };
+
+        checkShieldCollision = setInterval(() => {
+            if (!isGameRunning || !shield.isConnected) { // Check if shield exists
+                clearInterval(checkShieldCollision);
+                return;
+            }
+            const playerRect = player.getBoundingClientRect();
+            const shieldRect = shield.getBoundingClientRect();
+            if (
+                playerRect.left < shieldRect.right && playerRect.right > shieldRect.left &&
+                playerRect.top < shieldRect.bottom && playerRect.bottom > shieldRect.top
+            ) {
+                collected();
+            }
+        }, 50);
+
+        setTimeout(() => {
+            if (shield.isConnected) { // Check before removing
+                shield.remove();
+                clearInterval(checkShieldCollision);
+            }
+        }, 8000);
+    }
+
+    // Activate shield
+    function activateShield() {
+        shieldActive = true;
+        player.style.boxShadow = '0 0 20px 8px #00ffff, 0 0 40px 15px rgba(0, 0, 255, 0.7)';
+        player.style.filter = 'drop-shadow(0 0 10px cyan)';
+        if (shieldTimeout) clearTimeout(shieldTimeout);
+        shieldTimeout = setTimeout(() => {
+            shieldActive = false;
+            player.style.boxShadow = '';
+            player.style.filter = 'drop-shadow(0 0 10px orange)';
+        }, 5000);
+    }
+
+    // Spawn extra life
+    function spawnExtraLife() {
+        if (!isGameRunning || lives >= MAX_LIVES) return;
+        const heart = document.createElement('div');
+        heart.className = 'extra-life-powerup powerup';
+        heart.style.position = 'absolute';
+        heart.style.left = Math.random() * (window.innerWidth - 60) + 10 + 'px';
+        heart.style.top = Math.random() * (window.innerHeight - 60) + 10 + 'px';
+        heart.style.width = '35px';
+        heart.style.height = '35px';
+        heart.style.background = "url('https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2764.png') no-repeat center";
+        heart.style.backgroundSize = 'contain';
+        heart.style.zIndex = 15;
+        heart.title = "Extra Life";
+        gameArea.appendChild(heart);
+
+        let checkHeartCollision = null; // Declare here
+        const collected = () => {
+            if (lives < MAX_LIVES) {
+                lives++;
+                hudLives.textContent = lives;
+            }
+            heart.remove();
+            clearInterval(checkHeartCollision); // Clear interval
+        };
+
+        checkHeartCollision = setInterval(() => {
+            if (!isGameRunning || !heart.isConnected) { // Check if heart exists
+                clearInterval(checkHeartCollision);
+                return;
+            }
+            const playerRect = player.getBoundingClientRect();
+            const heartRect = heart.getBoundingClientRect();
+            if (
+                playerRect.left < heartRect.right && playerRect.right > heartRect.left &&
+                playerRect.top < heartRect.bottom && playerRect.bottom > heartRect.top
+            ) {
+                collected();
+            }
+        }, 50);
+
+        setTimeout(() => {
+            if (heart.isConnected) { // Check before removing
+                heart.remove();
+                clearInterval(checkHeartCollision);
+            }
+        }, 8000);
+    }
+
+    // Spawner Timers/Intervals
+    let extraLifeSpawnerTimeout;
+    let obstacleSpawnerInterval;
+    let shieldSpawnerTimeout;
+
+    function startExtraLifeSpawner() {
+        clearTimeout(extraLifeSpawnerTimeout); // Clear previous timeout if any
+        const spawn = () => {
+            if (isGameRunning && lives < MAX_LIVES) {
+                spawnExtraLife();
+            }
+            extraLifeSpawnerTimeout = setTimeout(spawn, Math.random() * 20000 + 20000); // Schedule next
+        };
+        extraLifeSpawnerTimeout = setTimeout(spawn, Math.random() * 10000 + 10000); // Initial delay
+    }
+
+    function startObstacleSpawner() {
+        clearInterval(obstacleSpawnerInterval);
+        obstacleSpawnerInterval = setInterval(spawnObstacle, 850);
+    }
+
+    function startShieldSpawner() {
+        clearTimeout(shieldSpawnerTimeout);
+        const spawn = () => {
+            if (isGameRunning && !shieldActive) {
+                spawnShield();
+            }
+            shieldSpawnerTimeout = setTimeout(spawn, Math.random() * 15000 + 15000); // Schedule next
+        };
+        shieldSpawnerTimeout = setTimeout(spawn, Math.random() * 10000 + 5000); // Initial delay
+    }
+
+    // Clear all intervals/timeouts
+    function clearAllIntervals() {
+        obstacleIntervals.forEach(clearInterval);
+        obstacleIntervals = [];
+
+        clearInterval(obstacleSpawnerInterval);
+        clearTimeout(shieldSpawnerTimeout);
+        clearTimeout(extraLifeSpawnerTimeout);
+        clearInterval(timerInterval); // Make sure timer interval is cleared
+        if (shieldTimeout) clearTimeout(shieldTimeout); // Clear active shield timeout
+
+        // Clear any lingering powerup check intervals (should be handled by removal, but good practice)
+        document.querySelectorAll('.powerup').forEach(p => {
+             // If intervals were stored on the element data, clear them here.
+             // Since they are cleared internally now, this might not be needed.
+        });
+    }
+
+    // Start timer
+    let timerInterval;
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!isGameRunning) {
+                return; // Pause timer
+            }
+            if (timer <= 0) {
+                clearInterval(timerInterval);
+                gameOver();
+            } else {
+                timer--;
+                hudTimer.textContent = timer;
+            }
+        }, 1000);
+    }
+
+    // Restart game
+    function restartGame() {
+        document.querySelectorAll('.obstacle, .powerup').forEach(el => el.remove());
+
+        lives = 3;
+        score = 0;
+        timer = 60;
+        shieldActive = false;
+        if (shieldTimeout) clearTimeout(shieldTimeout);
+
+        hudLives.textContent = lives;
+        hudScore.textContent = score;
+        hudTimer.textContent = timer;
+        // Removed updateCreditsDisplay call
+
+        messageBox.style.display = "none";
+
+        player.style.opacity = '1';
+        player.style.boxShadow = '';
+        player.style.filter = 'drop-shadow(0 0 10px orange)';
+        resetPlayer();
+
+        clearAllIntervals(); // Ensure everything is stopped before restarting
+
+        isGameRunning = true; // Set game to running *before* starting loops
+
+        startObstacleSpawner();
+        startTimer();
+        startShieldSpawner();
+        startExtraLifeSpawner();
+    }
+
+    // Touch controls
+    function setupTouchControls() {
+      const joystick = document.getElementById('joystick');
+      const knob = document.getElementById('joystick-knob');
+      let joystickRect, joystickCenter, touchId = null;
+
+      function getJoystickPos() {
+          joystickRect = joystick.getBoundingClientRect();
+          joystickCenter = {
+              x: joystickRect.left + joystickRect.width / 2,
+              y: joystickRect.top + joystickRect.height / 2
+          };
+          // Reset knob visual position on resize/recalc
+          knob.style.transform = 'translate(0px, 0px)';
+          knob.style.left = (joystickRect.width / 2 - knob.offsetWidth / 2) + 'px';
+          knob.style.top = (joystickRect.height / 2 - knob.offsetHeight / 2) + 'px';
+      }
+
+      function handleTouchStart(e) {
+          e.preventDefault();
+          for (let i = 0; i < e.changedTouches.length; i++) {
+              const touch = e.changedTouches[i];
+              if (touch.clientX >= joystickRect.left && touch.clientX <= joystickRect.right &&
+                  touch.clientY >= joystickRect.top && touch.clientY <= joystickRect.bottom)
+              {
+                  if (touchId === null) {
+                      touchId = touch.identifier;
+                      joystickActive = true;
+                      getJoystickPos(); // Update positions
+                      updateJoystick(touch.clientX, touch.clientY);
+                      break;
+                  }
+              }
+          }
+      }
+
+      function handleTouchMove(e) {
+          e.preventDefault();
+          if (joystickActive && touchId !== null) {
+              for (let i = 0; i < e.changedTouches.length; i++) {
+                  const touch = e.changedTouches[i];
+                  if (touch.identifier === touchId) {
+                      updateJoystick(touch.clientX, touch.clientY);
+                      break;
+                  }
+              }
+          }
+      }
+
+      function handleTouchEnd(e) {
+          if (joystickActive && touchId !== null) {
+              for (let i = 0; i < e.changedTouches.length; i++) {
+                  const touch = e.changedTouches[i];
+                  if (touch.identifier === touchId) {
+                      joystickActive = false;
+                      touchId = null;
+                      knob.style.transform = `translate(0px, 0px)`; // Reset transform
+                      joystickDirection = { x: 0, y: 0 };
+                      break;
+                  }
+              }
+          }
+      }
+
+      function updateJoystick(touchX, touchY) {
+          const dx = touchX - joystickCenter.x;
+          const dy = touchY - joystickCenter.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const maxDistance = joystickRect.width / 2 - knob.offsetWidth / 2;
+          let knobX, knobY;
+
+          if (distance > maxDistance) {
+              const angle = Math.atan2(dy, dx);
+              knobX = Math.cos(angle) * maxDistance;
+              knobY = Math.sin(angle) * maxDistance;
+              joystickDirection = { x: Math.cos(angle), y: Math.sin(angle) };
+          } else {
+              knobX = dx;
+              knobY = dy;
+              joystickDirection = { x: dx / maxDistance, y: dy / maxDistance };
+          }
+          knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+      }
+
+      getJoystickPos();
+      window.addEventListener('resize', getJoystickPos);
+
+      gameArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+      gameArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+      gameArea.addEventListener('touchend', handleTouchEnd, { passive: false });
+      gameArea.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    }
+
+    // Button/Keyboard controls
+    function setupButtonControls() {
+      const upBtn = document.getElementById('up');
+      const leftBtn = document.getElementById('left');
+      const rightBtn = document.getElementById('right');
+      const downBtn = document.getElementById('down');
+      const keys = { up: false, left: false, right: false, down: false };
+
+      function handleButtonDown(direction) { return (e) => { e.preventDefault(); keys[direction] = true; }; }
+      function handleButtonUp(direction) { return (e) => { e.preventDefault(); keys[direction] = false; }; }
+
+      upBtn.addEventListener('mousedown', handleButtonDown('up'));
+      upBtn.addEventListener('mouseup', handleButtonUp('up'));
+      upBtn.addEventListener('mouseleave', handleButtonUp('up'));
+      // Add touch events for buttons as fallback if joystick fails/not preferred
+      upBtn.addEventListener('touchstart', handleButtonDown('up'), { passive: false });
+      upBtn.addEventListener('touchend', handleButtonUp('up'), { passive: false });
+
+
+      leftBtn.addEventListener('mousedown', handleButtonDown('left'));
+      leftBtn.addEventListener('mouseup', handleButtonUp('left'));
+      leftBtn.addEventListener('mouseleave', handleButtonUp('left'));
+      leftBtn.addEventListener('touchstart', handleButtonDown('left'), { passive: false });
+      leftBtn.addEventListener('touchend', handleButtonUp('left'), { passive: false });
+
+      rightBtn.addEventListener('mousedown', handleButtonDown('right'));
+      rightBtn.addEventListener('mouseup', handleButtonUp('right'));
+      rightBtn.addEventListener('mouseleave', handleButtonUp('right'));
+      rightBtn.addEventListener('touchstart', handleButtonDown('right'), { passive: false });
+      rightBtn.addEventListener('touchend', handleButtonUp('right'), { passive: false });
+
+      downBtn.addEventListener('mousedown', handleButtonDown('down'));
+      downBtn.addEventListener('mouseup', handleButtonUp('down'));
+      downBtn.addEventListener('mouseleave', handleButtonUp('down'));
+      downBtn.addEventListener('touchstart', handleButtonDown('down'), { passive: false });
+      downBtn.addEventListener('touchend', handleButtonUp('down'), { passive: false });
+
+      document.addEventListener('keydown', (e) => {
+          if (!isGameRunning && e.key.startsWith('Arrow')) return;
+          switch (e.key) {
+              case 'ArrowUp': case 'w': case 'W': keys.up = true; break;
+              case 'ArrowLeft': case 'a': case 'A': keys.left = true; break;
+              case 'ArrowRight': case 'd': case 'D': keys.right = true; break;
+              case 'ArrowDown': case 's': case 'S': keys.down = true; break;
+          }
+      });
+
+      document.addEventListener('keyup', (e) => {
+          switch (e.key) {
+              case 'ArrowUp': case 'w': case 'W': keys.up = false; break;
+              case 'ArrowLeft': case 'a': case 'A': keys.left = false; break;
+              case 'ArrowRight': case 'd': case 'D': keys.right = false; break;
+              case 'ArrowDown': case 's': case 'S': keys.down = false; break;
+          }
+      });
+
+      return keys; // Return the state object
+    }
+
+    // Initialize controls
+    const keyControls = setupButtonControls();
+    setupTouchControls();
+
+    // Main Game Loop
+    let lastTimestamp = 0;
+    function gameLoop(timestamp) {
+        if (!isGameRunning) {
+             // If game isn't running (e.g., during game over message), stop loop processing.
+             // Request next frame anyway to keep checking if it should restart.
+             requestAnimationFrame(gameLoop);
+             return;
+        }
+
+        const deltaTime = (timestamp - (lastTimestamp || timestamp)) / 1000; // Use current timestamp if lastTimestamp is 0
+        lastTimestamp = timestamp;
+        const effectiveDeltaTime = Math.min(deltaTime, 0.1); // Cap delta time to prevent huge jumps if tab loses focus
+
+        let dx = 0, dy = 0;
+        // Scale speed by deltaTime for frame-rate independence, normalize to 60fps baseline
+        const currentSpeed = speed * (effectiveDeltaTime * 60);
+
+        if (joystickActive) {
+            dx = joystickDirection.x * currentSpeed;
+            dy = joystickDirection.y * currentSpeed;
+        } else {
+            if (keyControls.up) dy -= currentSpeed;
+            if (keyControls.down) dy += currentSpeed;
+            if (keyControls.left) dx -= currentSpeed;
+            if (keyControls.right) dx += currentSpeed;
+
+            if (dx !== 0 && dy !== 0) { // Normalize diagonal speed
+                const magnitude = Math.sqrt(dx * dx + dy * dy);
+                dx = (dx / magnitude) * currentSpeed;
+                dy = (dy / magnitude) * currentSpeed;
+            }
+        }
+
+        if (dx !== 0 || dy !== 0) {
+            movePlayer(dx, dy); // movePlayer now calls checkPlanetCollision
+        }
+
+        checkCollision(); // Check for obstacle collisions
+        moveStarField(); // Move background stars
+
+        // Update Moon Orbit
+        const venusRect = venus.getBoundingClientRect();
+        const venusCenterX = venusRect.left + venusRect.width / 2;
+        const venusCenterY = venusRect.top + venusRect.height / 2;
+        orbitAngle += orbitSpeed * (effectiveDeltaTime * 60);
+        if (orbitAngle > Math.PI * 2) orbitAngle -= Math.PI * 2;
+        const moonX = venusCenterX + orbitRadiusX * Math.cos(orbitAngle) - moon.offsetWidth / 2;
+        const moonY = venusCenterY + orbitRadiusY * Math.sin(orbitAngle) - moon.offsetHeight / 2;
+        moon.style.left = moonX + 'px';
+        moon.style.top = moonY + 'px';
+
+
+        requestAnimationFrame(gameLoop); // Loop continues
+    }
+
+    // Initialize game
+    function initGame() {
+      createStarField();
+      resetPlayer();
+      startObstacleSpawner();
+      startTimer();
+      startShieldSpawner();
+      startExtraLifeSpawner();
+      // Removed updateCreditsDisplay();
+      isGameRunning = true; // Ensure game starts running
+      requestAnimationFrame(gameLoop); // Start the main loop
+    }
+
+    // Start the game when page loads
+    window.addEventListener('load', initGame);
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (!player || !gameArea) return; // Check if elements exist
+        const playerWidth = player.offsetWidth;
+        const playerHeight = player.offsetHeight;
+        // Adjust position relative to new window size
+        playerPos.x = Math.max(0, Math.min(window.innerWidth - playerWidth, playerPos.x));
+        playerPos.y = Math.max(0, Math.min(window.innerHeight - playerHeight, playerPos.y));
+        if(isGameRunning){ // Only update style if game is running (avoids moving during game over)
+             player.style.left = playerPos.x + 'px';
+             player.style.top = playerPos.y + 'px';
+        }
+        // Star field adapts via CSS. Moon recalculates in loop. Joystick recalculated on touch/resize.
+    });
+
+  </script>
+</body>
+</html>

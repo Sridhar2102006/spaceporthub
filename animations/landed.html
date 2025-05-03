@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Confirmed!</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            overflow: hidden; font-family: 'Courier New', monospace;
+            background: radial-gradient(circle, #003366 5%, #000 90%); /* Deep blue */
+            color: #00ffff; display: flex; justify-content: center;
+            align-items: center; text-align: center;
+        }
+
+        .container {
+            padding: clamp(30px, 5vw, 50px);
+            border: 2px solid #00ffff; border-radius: 15px;
+            box-shadow: 0 0 30px #00ffff, inset 0 0 20px #00ffff44;
+            background: rgba(0, 20, 40, 0.85); backdrop-filter: blur(5px);
+            animation: fadeIn 1.5s ease-out; max-width: 80%;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.8) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        h1 {
+            font-size: clamp(1.8em, 5vw, 2.8em); margin-bottom: 15px;
+            text-shadow: 0 0 10px #00ffff, 0 0 20px #ffffffaa; color: #ffffff;
+            animation: pulseGlow 2s infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+             0% { text-shadow: 0 0 10px #00ffff, 0 0 20px #ffffffaa; }
+             100% { text-shadow: 0 0 15px #00ffff, 0 0 30px #ffffffdd; }
+        }
+
+        p {
+            font-size: clamp(1em, 2.5vw, 1.3em); margin-bottom: 25px; line-height: 1.6;
+        }
+
+        #destinationName {
+            font-weight: bold; color: #ffff00; text-transform: uppercase;
+        }
+         #statusText {
+             font-style: italic; color: #aaa; font-size: clamp(0.9em, 2vw, 1.1em);
+             min-height: 1.2em; transition: color 0.5s;
+             content: '\00a0'; /* Placeholder space */
+         }
+          #statusText.error { color: #ff4444; font-weight: bold; }
+          #statusText.success { color: #55ff55; }
+
+          .loader { /* Simple spinner */
+             border: 4px solid #f3f3f333; border-top: 4px solid #00ffff;
+             border-radius: 50%; width: 30px; height: 30px;
+             animation: spin 1s linear infinite; margin: 15px auto 0;
+             display: none; /* Hidden initially */
+          }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Touchdown Confirmed</h1>
+        <p>Welcome to <span id="destinationName">Your Destination</span>, Captain!</p>
+        <p id="statusText">&nbsp;</p> <!-- Status Text -->
+         <div id="loader" class="loader"></div> <!-- Loading Spinner -->
+    </div>
+
+    <script>
+        window.onload = () => {
+            // Get destinationPlanet which cockpit.html should have set just before navigating here.
+            const planetKey = localStorage.getItem('destinationPlanet');
+            const destinationSpan = document.getElementById('destinationName');
+            const statusText = document.getElementById('statusText');
+            const loader = document.getElementById('loader');
+
+            // --- Update Destination Display ---
+            if (planetKey) {
+                // Basic capitalization function
+                const name = planetKey.charAt(0).toUpperCase() + planetKey.slice(1);
+                destinationSpan.textContent = name;
+                 // Set minigamePlanet specifically for the next step (sample_collection.html)
+                 localStorage.setItem('minigamePlanet', planetKey);
+                 console.log(`Landed on: ${name} (${planetKey}). Set minigamePlanet.`);
+            } else {
+                destinationSpan.textContent = 'an Unknown Location';
+                statusText.textContent = "Error: Destination data missing!";
+                statusText.classList.add('error');
+                console.error("Landed.html: 'destinationPlanet' key not found in localStorage.");
+                 // Fallback: perhaps set minigamePlanet to 'default'?
+                 localStorage.setItem('minigamePlanet', 'default');
+            }
+
+            // --- Clear the landing marker now ---
+            // We've used destinationPlanet to display the name and set minigamePlanet.
+            // Remove it so it doesn't confuse future navigation attempts from index.html
+            localStorage.removeItem('destinationPlanet');
+            console.log("Landed.html: Removed 'destinationPlanet' key from localStorage.");
+
+            // --- Sequential Feedback & Redirect Logic ---
+             const step1Delay = 1500; // Delay before first status update
+             const redirectStartDelay = step1Delay + 1500; // Start spinner & countdown slightly later
+             const redirectTotalTime = 4000; // Total time on this page before redirect
+
+            // Initial message
+            statusText.textContent = "Landing successful. Preparing surface equipment...";
+             statusText.classList.remove('error', 'success'); // Reset colors
+
+             // First update
+             setTimeout(() => {
+                 statusText.textContent = "Deploying sample collection drone...";
+                 statusText.classList.add('success'); // Make it green
+                 loader.style.display = 'block'; // Show spinner
+             }, step1Delay);
+
+
+             // Redirect to the Sample Collection Minigame
+             setTimeout(() => {
+                  console.log(`Landed.html: Redirecting to sample collection page (sample_collection.html)`);
+                  window.location.href = 'sample_collection.html';
+              }, redirectTotalTime); // Redirect after the total time
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Cosmic Explorer: Sample Collection</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+    body {
+        margin: 0; overflow: hidden; background-color: #000;
+        display: flex; justify-content: center; align-items: center;
+        height: 100vh; width: 100vw;
+        color: white; font-family: 'Courier New', monospace; /* Use consistent font */
+    }
+    canvas {
+        border: 1px solid #00ffff; /* Cyan border */
+        /* background-color set dynamically */
+        display: block; max-width: 100%; max-height: 100%;
+        box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); /* Add subtle glow */
+    }
+    #gameInfo {
+        position: absolute; top: 10px; left: 10px; color: #00ffff; /* Cyan text */
+        font-size: clamp(14px, 3vw, 18px); background-color: rgba(0,10,20,0.8); /* Dark blue bg */
+        padding: 8px 12px; border-radius: 5px; z-index: 10; border: 1px solid #00ffff55;
+        text-shadow: 1px 1px 2px black;
+    }
+    #gameInfo span { margin-right: 15px; }
+    #gameInfo span:last-child { margin-right: 0; }
+     #gameInfo #planetNameDisplay { color: #ffff00; font-weight: bold; } /* Highlight planet */
+
+    /* Live Indicator Style */
+    #liveIndicator {
+        position: absolute; top: 10px; right: 10px; color: white;
+        font-size: clamp(12px, 2.5vw, 16px); font-weight: bold;
+        background-color: rgba(200, 0, 0, 0.7); /* Red background */
+        padding: 5px 10px; border-radius: 15px; /* Pill shape */
+        z-index: 10; display: flex; align-items: center;
+        text-shadow: 1px 1px 2px black;
+        border: 1px solid #ffaaaa;
+    }
+    #liveIndicator::before { /* Blinking dot */
+        content: ''; display: inline-block; width: 8px; height: 8px;
+        background-color: white; border-radius: 50%; margin-right: 6px;
+        animation: blinkLive 1.5s infinite ease-in-out;
+    }
+    @keyframes blinkLive {
+        0%, 100% { opacity: 1; box-shadow: 0 0 5px white; }
+        50% { opacity: 0.5; box-shadow: none; }
+    }
+
+    /* Instruction Text Style */
+    #instructionText {
+        position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
+        color: white; font-size: clamp(12px, 3.5vw, 22px); text-align: center;
+        background-color: rgba(0, 20, 40, 0.85); padding: 25px 35px; border-radius: 8px;
+        max-width: 80%; z-index: 15; text-shadow: 1px 1px 3px black;
+        transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+        border: 1px solid #00ffffaa;
+    }
+     #instructionText.hidden { opacity: 0; transform: translate(-50%, -50%) scale(0.8); pointer-events: none; }
+
+    /* Overlay Text Style */
+    #overlayText {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        font-family: 'Courier New', monospace; text-align: center; color: white;
+        background-color: rgba(0, 10, 20, 0.9); padding: clamp(20px, 5vw, 40px);
+        border-radius: 10px; z-index: 20; display: none;
+        width: 85%; max-width: 500px; box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        border: 2px solid; /* Border color set by class */
+    }
+    #overlayText.win { border-color: lime; box-shadow: 0 0 25px lime; }
+    #overlayText.lose { border-color: red; box-shadow: 0 0 25px red; }
+    #overlayText h2 { margin-top: 0; font-size: clamp(24px, 6vw, 36px); margin-bottom: 15px; font-weight: bold;}
+    #overlayText p { font-size: clamp(16px, 3.5vw, 20px); margin-bottom: 20px; line-height: 1.4; }
+    #overlayText p:last-child { margin-bottom: 0; font-style: italic; font-size: clamp(14px, 3vw, 18px); color: #ccc;}
+    #overlayText.win h2 { color: lime; text-shadow: 0 0 10px lime; }
+    #overlayText.lose h2 { color: red; text-shadow: 0 0 10px red; }
+
+    /* Loading Indicator */
+     #loadingIndicator {
+        position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+        font-size: clamp(18px, 4vw, 24px); color: #00ffff; z-index: 30; display: none;
+        background: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 5px; border: 1px solid #00ffff55;
+        text-shadow: 0 0 5px #00ffff;
+     }
+
+</style>
+</head>
+<body>
+
+<div id="gameInfo">
+    <span>TIME: <span id="timer">60</span>s</span>
+    <span>SAMPLES: <span id="score">0</span> / <span id="totalCrystals">0</span></span>
+    <span>PLANET: <span id="planetNameDisplay">Unknown</span></span>
+</div>
+
+<div id="liveIndicator">DRONE LIVE</div>
+
+<div id="instructionText">
+     Use Arrow Keys / WASD or Touch Controls (Bottom Screen Area) <br> Collect all <span style="color:#ffff00; font-weight:bold;">Yellow Samples</span>!<br> Avoid the <span id="hazardInstructionColor" style="font-weight:bold;">Red Zones</span>!
+</div>
+
+<div id="overlayText"> <!-- Structure for win/lose message -->
+    <h2 id="overlayTitle"></h2>
+    <p id="overlayReason"></p>
+    <p id="overlayInstruction"></p>
+</div>
+
+<div id="loadingIndicator">Loading Terrain Data...</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    // --- DOM Elements ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const gameInfo = document.getElementById('gameInfo');
+    const timerDisplay = document.getElementById('timer');
+    const scoreDisplay = document.getElementById('score');
+    const totalCrystalsDisplay = document.getElementById('totalCrystals');
+    const planetNameDisplay = document.getElementById('planetNameDisplay');
+    const overlayDiv = document.getElementById('overlayText');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlayReason = document.getElementById('overlayReason');
+    const overlayInstruction = document.getElementById('overlayInstruction');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const instructionText = document.getElementById('instructionText');
+    const hazardInstructionColor = document.getElementById('hazardInstructionColor');
+    const liveIndicator = document.getElementById('liveIndicator');
+
+    // --- Canvas Sizing ---
+    let canvasWidth;
+    let canvasHeight;
+    const ASPECT_RATIO = 16 / 9;
+
+    function resizeCanvas() { /* ...unchanged canvas resizing logic... */
+         const windowWidth = window.innerWidth; const windowHeight = window.innerHeight; const padding = 10; const infoBarHeight = gameInfo.offsetHeight + 10; let potentialWidth = windowWidth - padding * 2; let potentialHeight = windowHeight - padding * 2 - infoBarHeight; if (potentialWidth / potentialHeight > ASPECT_RATIO) { canvasHeight = potentialHeight; canvasWidth = canvasHeight * ASPECT_RATIO; } else { canvasWidth = potentialWidth; canvasHeight = canvasWidth / ASPECT_RATIO; } canvas.width = Math.floor(canvasWidth); canvas.height = Math.floor(canvasHeight); console.log(`Canvas resized to: ${canvas.width} x ${canvas.height}`); if (gameInitialized) { console.log("Game was initialized, redefining level for new size..."); defineLevel(); }
+    }
+
+
+    // --- Game Settings ---
+    const GRAVITY_DEFAULT = 0.3;
+    const MOVE_SPEED_DEFAULT = 4;
+    const JUMP_FORCE_DEFAULT = -11;
+    const FRICTION = 0.8;
+    const PLAYER_HEIGHT_FACTOR = 0.08
+    ; // Player height relative to canvas height
+    const PLAYER_ASPECT_RATIO = 0.7; // Width relative to height for placeholder shape
+    const LEVEL_TIME = 60;
+    const CRYSTAL_SIZE_FACTOR = 0.03;
+    const HAZARD_HEIGHT_FACTOR = 0.03;
+
+    // Planet-Specific Variations
+    const planetVariations = { /* ...unchanged planet data object... */
+        'default': { gravity: GRAVITY_DEFAULT, jump: JUMP_FORCE_DEFAULT, move: MOVE_SPEED_DEFAULT, bg: 'linear-gradient(#112, #335)', hazardColor: '#e74c3c', hazardText: 'DANGER ZONE', crystalColor: '#f1c40f' },
+        'moon':    { gravity: 0.16, jump: -8, move: 3.5, bg: 'linear-gradient(#2c3e50, #1a2531)', hazardColor: '#c0392b', hazardText: 'DEEP CRATER', crystalColor: '#f1c40f'},
+        'mars':    { gravity: 0.25, jump: -10, move: 4, bg: 'linear-gradient(#612000, #3a1300)', hazardColor: '#d35400', hazardText: 'IRON SPIKES', crystalColor: '#f1c40f'},
+        'io':      { gravity: 0.35, jump: -11, move: 4, bg: 'linear-gradient(#4a3c01, #2d2400)', hazardColor: '#f1c40f', hazardText: 'LAVA FLOW', crystalColor: '#3498db' /* Different color crystal for variety */ },
+         'venus':   { gravity: 0.9, jump: -13, move: 4.5, bg: 'linear-gradient(#a37a00, #574000)', hazardColor: '#f39c12', hazardText: 'ACID POOL', crystalColor: '#f1c40f' },
+         'ceres':   { gravity: 0.03, jump: -5, move: 3, bg: 'linear-gradient(#555, #222)', hazardColor: '#ffffff', hazardText: 'ICE FISSURE', crystalColor: '#f1c40f', platformColor: '#bdbdbd' },
+         'titan':   { gravity: 0.14, jump: -7, move: 3.5, bg: 'linear-gradient(#583e25, #2a1d12)', hazardColor: '#16a085', hazardText: 'METHANE LAKE', crystalColor: '#f1c40f' },
+         'europa':  { gravity: 0.13, jump: -7.5, move: 3.7, bg: 'linear-gradient(#6080a2, #2b3d52)', hazardColor: '#2980b9', hazardText: 'ICY WATER', crystalColor: '#f1c40f'},
+          'pluto':   { gravity: 0.06, jump: -6, move: 3.2, bg: 'linear-gradient(#777, #333)', hazardColor: '#9b59b6', hazardText: 'N₂ GEYSER', crystalColor: '#f1c40f', platformColor: '#cccccc'}
+     };
+    let currentPlanetKey = 'default';
+    let currentVariation = planetVariations.default;
+
+
+    // --- Asset Loading ---
+    let assets = {
+        player: { loaded: false, type: 'image', img: null }, // Use image for player
+        background: { loaded: true, type: 'placeholder' } // Keep background as placeholder
+    };
+    let assetsLoadedCount = 0;
+    const totalAssetsToLoad = 2; // player image + background placeholder
+    let imagesLoaded = false; // Will be true when assets are ready
+
+    let gameWinTimeout = null;
+    let gameInitialized = false;
+
+    // Asset loaded callback
+    function assetLoaded(assetName) {
+        console.log(`${assetName} asset marked as loaded.`);
+        assetsLoadedCount++;
+        if (assets[assetName]) {
+            assets[assetName].loaded = true;
+        }
+
+        if (assetsLoadedCount >= totalAssetsToLoad) {
+             imagesLoaded = true;
+             loadingIndicator.style.display = 'none';
+             console.log("All assets ready.");
+             if (!gameInitialized) {
+                 resizeCanvas(); // Size canvas *before* init
+                 initGame();
+             }
+         }
+     }
+
+    // Function to start loading assets
+    function loadAssets() {
+        loadingIndicator.style.display = 'block';
+        instructionText.style.opacity = '1';
+        instructionText.classList.remove('hidden');
+        assetsLoadedCount = 0;
+
+        // Load Player Image
+        console.log("Loading player asset...");
+        assets.player.img = new Image();
+        assets.player.img.onload = () => {
+            console.log("Player image loaded successfully.");
+            assetLoaded('player');
+        };
+        assets.player.img.onerror = () => {
+            console.error("Error loading player image! Falling back to placeholder.");
+            assets.player.type = 'placeholder'; // Fallback
+            assetLoaded('player');
+        };
+        assets.player.img.src = 'sprite.png'; // Path to your player sprite
+
+        // Mark background placeholder as loaded
+        assetLoaded('background');
+    }
+     // --- End Asset Loading ---
+
+
+    // --- Game State Variables ---
+    let player = { x: 100, y: 0, width: 0, height: 0, vx: 0, vy: 0, isGrounded: false };
+    let platforms = [];
+    let crystals = [];
+    let hazards = [];
+    let keys = {};
+    let score = 0;
+    let timeLeft = LEVEL_TIME;
+    let gameTimerInterval = null;
+    let animationFrameId = null;
+    let gameOver = false;
+    let gameWon = false;
+    let instructionHideTimeout = null;
+
+
+    // --- Input Handling ---
+    document.addEventListener('keydown', (e) => { keys[e.code] = true; });
+    document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+    let touchLeft = false, touchRight = false, touchJump = false;
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('touchcancel', handleTouchEnd);
+    function handleTouchStart(e) { e.preventDefault(); processTouches(e.touches); }
+    function handleTouchMove(e) { e.preventDefault(); processTouches(e.touches); }
+    function handleTouchEnd(e) { processTouches(e.touches); if (e.touches.length === 0) { touchLeft = touchRight = touchJump = false; } }
+    function processTouches(touches) {
+         let currentTouchLeft = false, currentTouchRight = false, currentTouchJump = false;
+         for (let i = 0; i < touches.length; i++) {
+            const touch = touches[i];
+            const touchX = touch.clientX - canvas.offsetLeft;
+            const touchY = touch.clientY - canvas.offsetTop;
+            const leftZoneEnd = canvasWidth / 3;
+            const rightZoneStart = canvasWidth * 2 / 3;
+            const controlZoneTop = canvasHeight * 0.5;
+            if (touchY > controlZoneTop) {
+                if (touchX < leftZoneEnd) currentTouchLeft = true;
+                else if (touchX > rightZoneStart) currentTouchRight = true;
+                else currentTouchJump = true;
+            }
+         }
+         touchLeft = currentTouchLeft; touchRight = currentTouchRight; touchJump = currentTouchJump;
+     }
+
+    // --- Resize Handling ---
+    window.addEventListener('resize', debounce(resizeCanvas, 250));
+    function debounce(func, wait) { let timeout; return function(...args) { clearTimeout(timeout); timeout = setTimeout(() => func.apply(this, args), wait); }; }
+
+
+    // --- Level Definition ---
+    function defineLevel() {
+         if (!gameInitialized || !canvas.width || !canvas.height) return;
+         console.log("Defining level layout...");
+         platforms = []; crystals = []; hazards = []; score = 0; gameOver = false; gameWon = false;
+         overlayDiv.style.display = 'none'; clearTimeout(gameWinTimeout); gameWinTimeout = null;
+         clearInterval(gameTimerInterval); gameTimerInterval = null;
+
+         // Reset instruction visibility
+         console.log("defineLevel: Resetting instruction visibility.");
+         instructionText.style.opacity = '1';
+         instructionText.classList.remove('hidden');
+
+         // --- Player Size Calculation ---
+         player.height = Math.max(20, Math.floor(canvasHeight * PLAYER_HEIGHT_FACTOR));
+         let pAspectRatio = PLAYER_ASPECT_RATIO; // Default
+         if (imagesLoaded && assets.player.type === 'image' && assets.player.img && assets.player.img.naturalHeight > 0) {
+             pAspectRatio = assets.player.img.naturalWidth / assets.player.img.naturalHeight;
+             console.log(`Using image aspect ratio: ${pAspectRatio}`);
+         } else {
+             console.log(`Using default aspect ratio: ${pAspectRatio}`);
+         }
+         player.width = Math.max(30, Math.floor(player.height * pAspectRatio));
+         // --- End Player Size Calculation ---
+
+         player.x = canvasWidth * 0.1-20; player.y = canvasHeight * 0.1 ; player.vx = 0; player.vy = 0; player.isGrounded = false;
+
+         const groundY = canvasHeight * 0.95;
+         const platH = Math.max(15, Math.floor(canvasHeight * 0.03));
+         const pColor = currentVariation.platformColor || '#95a5a6';
+
+         // Platforms
+         platforms.push({ x: -player.width, y: groundY, width: canvasWidth + player.width * 2, height: canvasHeight * 0.1, color: pColor }); // Ground [0]
+         platforms.push({ x: canvasWidth * 0.25, y: groundY - player.height * 2.5, width: canvasWidth * 0.20, height: platH, color: pColor }); // [1]
+         platforms.push({ x: canvasWidth * 0.60, y: groundY - player.height * 4.5, width: canvasWidth * 0.25, height: platH, color: pColor }); // [2]
+         platforms.push({ x: canvasWidth * 0.05, y: groundY - player.height * 6.0, width: canvasWidth * 0.18, height: platH, color: pColor }); // [3] (Start)
+         platforms.push({ x: canvasWidth * 0.75, y: groundY - player.height * 1.5, width: canvasWidth * 0.15, height: platH, color: pColor }); // [4]
+
+         // Crystals
+         const crystS = Math.max(15, Math.floor(canvasHeight * CRYSTAL_SIZE_FACTOR));
+         const placeCrystal = (pIndex, yOffsetMultiplier = 1.6) => {
+             if (platforms[pIndex]) {
+                 crystals.push({ x: platforms[pIndex].x + platforms[pIndex].width / 2 - crystS / 2, y: platforms[pIndex].y - crystS * yOffsetMultiplier, width: crystS, height: crystS, collected: false });
+             }
+         };
+         placeCrystal(1); placeCrystal(2); placeCrystal(3); placeCrystal(4);
+         crystals.push({ x: canvasWidth * 0.9, y: groundY - crystS * 1.6, width: crystS, height: crystS, collected: false });
+
+         // Hazards
+         const hazH = Math.max(10, Math.floor(canvasHeight * HAZARD_HEIGHT_FACTOR));
+         hazards.push({ x: canvasWidth * 0.45, y: groundY - hazH, width: canvasWidth * 0.15, height: hazH }); // [0] Hazard on ground middle
+         if (platforms[2]) { hazards.push({ x: platforms[2].x, y: platforms[2].y + platH, width: platforms[2].width, height: hazH }); } // [1] Hazard below middle-right platform
+         if (platforms[3]) { // [2] Hazard associated with top-left platform
+             hazards.push({ x: platforms[3].x, y: platforms[3].y +188, width: platforms[3].width * 0.8, height: hazH }); // <<<< MODIFIED LINE: Hazard BELOW top-left platform
+         }
+         totalCrystalsDisplay.textContent = crystals.length; updateScoreDisplay(); startTimers();
+    }
+
+
+    // --- Collision Detection ---
+    function checkCollision(rect1, rect2) {
+         return rect1.x < rect2.x + rect2.width && rect1.x + rect1.width > rect2.x && rect1.y < rect2.y + rect2.height && rect1.y + rect1.height > rect2.y;
+    }
+
+    // --- Game Update Logic ---
+    function update() {
+         if (gameOver || gameWon || !gameInitialized) return;
+         const moveLeft = keys['ArrowLeft'] || keys['KeyA'] || touchLeft;
+         const moveRight = keys['ArrowRight'] || keys['KeyD'] || touchRight;
+         const jumpPressed = keys['ArrowUp'] || keys['KeyW'] || keys['Space'] || touchJump;
+
+         if (touchJump) touchJump = false;
+
+         // Horizontal Movement
+         if (moveLeft) player.vx -= currentVariation.move * 0.15;
+         else if (moveRight) player.vx += currentVariation.move * 0.15;
+         else player.vx *= FRICTION;
+         player.vx = Math.max(-currentVariation.move, Math.min(currentVariation.move, player.vx));
+
+         // Jumping
+         if (jumpPressed && player.isGrounded) {
+             player.vy = currentVariation.jump;
+             player.isGrounded = false;
+             keys['ArrowUp'] = keys['KeyW'] = keys['Space'] = false;
+         }
+
+         // Gravity
+         player.vy += currentVariation.gravity;
+
+         // Collision Detection & Resolution
+         const prevX = player.x, prevY = player.y;
+
+         // Horizontal Collision
+         player.x += player.vx;
+         platforms.forEach(plat => {
+             if (checkCollision(player, plat)) {
+                 if (player.vx > 0 && prevX + player.width <= plat.x) player.x = plat.x - player.width;
+                 else if (player.vx < 0 && prevX >= plat.x + plat.width) player.x = plat.x + plat.width;
+                 player.vx = 0;
+             }
+         });
+         if (player.x < 0) { player.x = 0; player.vx = 0; }
+         if (player.x + player.width > canvasWidth) { player.x = canvasWidth - player.width; player.vx = 0; }
+
+         // Vertical Collision
+         player.y += player.vy;
+         player.isGrounded = false;
+         platforms.forEach(plat => {
+             if (checkCollision(player, plat)) {
+                 if (player.vy >= 0 && prevY + player.height <= plat.y) { // Land on top
+                     player.y = plat.y - player.height;
+                     player.vy = 0;
+                     player.isGrounded = true;
+                 } else if (player.vy < 0 && prevY >= plat.y + plat.height) { // Hit bottom
+                     player.y = plat.y + plat.height;
+                     player.vy = 0;
+                 }
+             }
+         });
+
+         // Other Interactions
+         // Fall off screen
+         if (player.y > canvasHeight + player.height) {
+             triggerGameOver("Oxygen depleted!");
+             return;
+         }
+
+         // Crystal collection
+         for (let i = crystals.length - 1; i >= 0; i--) {
+             if (!crystals[i].collected && checkCollision(player, crystals[i])) {
+                 crystals[i].collected = true; score++; updateScoreDisplay();
+                 if (score >= crystals.length) { triggerGameWin(); return; }
+             }
+         }
+
+         // Hazard collision
+         hazards.forEach(haz => {
+             if (checkCollision(player, haz)) {
+                 triggerGameOver(`Player hit a ${currentVariation.hazardText}!`);
+                 return;
+             }
+         });
+     }
+
+
+    // --- Drawing ---
+    function draw() {
+         if (!gameInitialized || !imagesLoaded) return; // Wait for assets
+
+         ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+         // Background
+         const bgColors = currentVariation.bg.match(/#([0-9a-fA-F]{3,6})/g) || ['#112', '#335'];
+         const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+         gradient.addColorStop(0, bgColors[0]); gradient.addColorStop(1, bgColors[1]);
+         ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+         // Platforms
+         platforms.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.width, p.height); });
+
+         // Crystals
+         const crystalColor = currentVariation.crystalColor || '#f1c40f';
+         ctx.fillStyle = crystalColor; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+         crystals.forEach(c => {
+             if (!c.collected) {
+                 const pulse = Math.sin(Date.now() * 0.008) * (c.width * 0.1) + (c.width * 0.9);
+                 const cx = c.x + c.width / 2, cy = c.y + c.height / 2;
+                 ctx.beginPath();
+                 ctx.moveTo(cx, cy - pulse / 2); ctx.lineTo(cx + pulse / 2, cy);
+                 ctx.lineTo(cx, cy + pulse / 2); ctx.lineTo(cx - pulse / 2, cy);
+                 ctx.closePath();
+                 ctx.shadowColor = crystalColor; ctx.shadowBlur = 10;
+                 ctx.fill(); ctx.stroke();
+                 ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+             }
+         });
+
+         // Hazards
+         hazards.forEach(h => {
+             ctx.fillStyle = currentVariation.hazardColor;
+             ctx.fillRect(h.x, h.y, h.width, h.height);
+             ctx.fillStyle = '#000';
+             ctx.font = `bold ${Math.max(8, Math.floor(h.height * 0.7))}px 'Courier New', monospace`;
+             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+             ctx.strokeStyle = currentVariation.hazardColor; ctx.lineWidth = 2;
+             ctx.strokeText(currentVariation.hazardText, h.x + h.width / 2, h.y + h.height / 2);
+             ctx.fillText(currentVariation.hazardText, h.x + h.width / 2, h.y + h.height / 2);
+         });
+
+         ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 1;
+
+         // --- Draw Player ---
+         if (assets.player.loaded && assets.player.type === 'image' && assets.player.img) {
+             ctx.drawImage(assets.player.img, player.x, player.y, player.width, player.height);
+         } else { // Fallback
+             ctx.fillStyle = '#ecf0f1';
+             ctx.fillRect(player.x, player.y, player.width, player.height);
+             ctx.strokeStyle = '#7f8c8d';
+             ctx.strokeRect(player.x, player.y, player.width, player.height);
+         }
+
+         // drawTouchControls();
+    }
+
+    function drawTouchControls() { /* ...unchanged optional visualization... */
+          ctx.save(); ctx.globalAlpha = 0.15; const leftZoneEnd = canvasWidth / 3, rightZoneStart = canvasWidth * 2 / 3, ctrlTop = canvasHeight * 0.5; ctx.fillStyle = 'cyan'; ctx.fillRect(0, ctrlTop, leftZoneEnd, canvasHeight - ctrlTop); ctx.fillStyle = 'cyan'; ctx.fillRect(rightZoneStart, ctrlTop, leftZoneEnd, canvasHeight - ctrlTop); ctx.fillStyle = 'lime'; ctx.fillRect(leftZoneEnd, ctrlTop, rightZoneStart - leftZoneEnd, canvasHeight - ctrlTop); ctx.globalAlpha = 0.4; if (touchLeft) ctx.fillRect(0, ctrlTop, leftZoneEnd, canvasHeight - ctrlTop); if (touchRight) ctx.fillRect(rightZoneStart, ctrlTop, leftZoneEnd, canvasHeight - ctrlTop); if (touchJump) ctx.fillRect(leftZoneEnd, ctrlTop, rightZoneStart - leftZoneEnd, canvasHeight - ctrlTop); ctx.restore();
+    }
+
+
+    // --- UI Updates ---
+    function updateScoreDisplay() { scoreDisplay.textContent = score; }
+    function updateTimerDisplay() { timerDisplay.textContent = timeLeft; }
+    function showOverlay(isWin, reason = "") {
+          if (overlayDiv.style.display === 'block') return;
+          clearTimeout(instructionHideTimeout);
+          instructionText.classList.add('hidden');
+          overlayDiv.style.display = 'block';
+          overlayDiv.className = isWin ? 'win' : 'lose';
+          overlayTitle.textContent = isWin ? 'Collection Complete!' : 'Mission Failure!';
+          overlayReason.textContent = reason;
+          overlayInstruction.textContent = isWin ? 'Returning to ship...' : 'Retrying Mission...';
+    }
+
+    // --- Game End Handling ---
+    function triggerGameOver(reason = "Time Expired!") {
+        if (gameOver || gameWon) return;
+        gameOver = true;
+        stopGameLoopAndTimers();
+        showOverlay(false, reason);
+        console.log(`Minigame Failed: ${reason}. Reloading.`);
+        setTimeout(() => { window.location.reload(); }, 3500);
+     }
+    function triggerGameWin() {
+         if (gameOver || gameWon) return;
+         gameWon = true;
+         stopGameLoopAndTimers();
+         showOverlay(true, `All ${crystals.length} samples secured from ${currentPlanetKey}!`);
+         console.log("Minigame Won! Redirecting to analysis report.");
+         localStorage.setItem('sampleCollectionStatus', 'success');
+         clearTimeout(gameWinTimeout);
+         gameWinTimeout = setTimeout(() => {
+             window.location.href = 'analysis_report.html';
+         }, 4000);
+    }
+
+    // --- Timers & Game Loop ---
+    function countdown() {
+         if (gameOver || gameWon || !gameInitialized) return;
+         timeLeft--;
+         updateTimerDisplay();
+         if (timeLeft <= 0) triggerGameOver("Time Expired!");
+    }
+    function startTimers() {
+        clearInterval(gameTimerInterval);
+        timeLeft = LEVEL_TIME;
+        updateTimerDisplay();
+        gameTimerInterval = setInterval(countdown, 1000);
+     }
+    function gameLoop() {
+         if (gameOver || gameWon) { cancelAnimationFrame(animationFrameId); animationFrameId = null; return; }
+         update();
+         draw();
+         animationFrameId = requestAnimationFrame(gameLoop);
+     }
+    function startGameLoop() {
+          if (animationFrameId) cancelAnimationFrame(animationFrameId);
+          // Instruction auto-hide timer
+          clearTimeout(instructionHideTimeout);
+          instructionHideTimeout = setTimeout(() => {
+                if (!gameOver && !gameWon && overlayDiv.style.display !== 'block') {
+                    instructionText.classList.add('hidden');
+                }
+            }, 5000);
+          animationFrameId = requestAnimationFrame(gameLoop);
+          console.log("Game loop initiated. Instruction hide timer started.");
+     }
+    function stopGameLoopAndTimers() {
+         clearInterval(gameTimerInterval); gameTimerInterval = null;
+         if (animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = null;
+         clearTimeout(instructionHideTimeout);
+         instructionText.classList.add('hidden');
+         console.log("Game loop and timers stopped. Instructions hidden.");
+    }
+
+
+    // --- Initialization ---
+    function initGame() {
+        console.log("Initializing Sample Collection...");
+        if (!imagesLoaded || gameInitialized) {
+            console.log("Initialization skipped (already initialized or assets not loaded).");
+            return;
+        }
+        gameInitialized = true;
+
+        currentPlanetKey = localStorage.getItem('minigamePlanet') || 'default';
+        currentVariation = planetVariations[currentPlanetKey] || planetVariations.default;
+        const planetDisplayName = currentPlanetKey.charAt(0).toUpperCase() + currentPlanetKey.slice(1);
+        planetNameDisplay.textContent = planetDisplayName;
+        hazardInstructionColor.style.color = currentVariation.hazardColor;
+        hazardInstructionColor.textContent = (currentVariation.hazardText || 'DANGER ZONES').toUpperCase();
+        canvas.style.background = currentVariation.bg;
+        console.log(`Variations set for: ${planetDisplayName}`);
+
+        defineLevel();
+        startGameLoop();
+    }
+
+    // --- Start Process ---
+    window.addEventListener('load', loadAssets);
+
+    // --- Cleanup ---
+    window.addEventListener('beforeunload', () => {
+        console.log("beforeunload: Stopping game loop and timers.");
+        stopGameLoopAndTimers();
+        clearTimeout(gameWinTimeout);
+        clearTimeout(instructionHideTimeout);
+    });
+
+</script>
+</body>
+</html>
